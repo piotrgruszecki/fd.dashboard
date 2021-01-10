@@ -2,7 +2,12 @@ default:
   golem_name: fd.dashboard
   golem_version: 0.0.0.9000
   app_prod: no
+  dbname: fd_reports
+  username: fd_reports_user
+  password: 6Pb27%n_jH6J^@r&gJR-KbSxp--+8TBK
+  host: rdsamazon.cbief3wnjkp9.eu-west-1.rds.amazonaws.com
+  encoding: latin1
 production:
   app_prod: yes
 dev:
-  golem_wd: !expr here::here()
+  golem_wd: /Users/piotrgruszecki/Documents/GitHub/fd.dashboard
