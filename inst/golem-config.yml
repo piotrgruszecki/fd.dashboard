@@ -7,6 +7,8 @@ default:
   password: 6Pb27%n_jH6J^@r&gJR-KbSxp--+8TBK
   host: rdsamazon.cbief3wnjkp9.eu-west-1.rds.amazonaws.com
   encoding: latin1
+  table_leads_clean: bs_leads_clean
+  table_leads_log: bs_leads_log
 production:
   app_prod: yes
 dev:

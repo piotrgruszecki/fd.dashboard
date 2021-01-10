@@ -5,7 +5,7 @@
 get_aws_connection <-
     function() {
 
-        if (!exists("config")) config <- config::get(file = app_sys("golem-config.yml"), use_parent = TRUE)
+        #if (!exists("config")) config <- config::get(file = app_sys("golem-config.yml"), use_parent = TRUE)
 
         con <- RMySQL::dbConnect(drv      = RMySQL::MySQL(),
                                  dbname   = config$dbname,
@@ -53,4 +53,62 @@ write_table_to_aws <-
         RMySQL::dbWriteTable(con, table_name, dt, overwrite = overwrite, append = append)
         RMySQL::dbDisconnect(con)
 
+    }
+
+#' Reading subset of columns from a leads database in aws
+#'
+#' @importFrom glue glue_sql
+#' @importFrom RMySQL dbSendQuery dbFetch dbDisconnect
+#' @importFrom data.table setDT
+#'
+#' @export
+read_clean_leads <-
+    function() {
+
+       # if (!exists("config")) config <- config::get(file = "00_config/config.yml")
+
+        col_subset_names <- c("date", "website_iso2c", "Date_y", "year", "month")
+
+        table_name <- config$table_leads_clean
+
+        con <- get_aws_connection()
+        query_txt <- glue::glue_sql(
+            "SELECT {`col_subset_names`*} FROM {`table_name`}",
+           # cols = cols_subset,
+            .con = con)
+
+        query <- RMySQL::dbSendQuery(con, query_txt)
+        res <- RMySQL::dbFetch(query, -1)
+        RMySQL::dbDisconnect(con)
+
+        setDT(res)
+        return(res)
+    }
+
+#' Read data for report 9
+#'
+# @importFrom data.table setDT setnames .SD  :=
+#' @import data.table
+#' @importFrom lubridate month date
+#'
+#' @export
+get_data_adapt_for_report_9 <-
+    function() {
+
+        dt <- read_clean_leads()
+        setDT(dt)
+
+        #-- adjust column names, types so the old script can work without changes
+        date_cols <- c("date", "Date_y")
+        dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
+
+        factor_cols <- c("website_iso2c", "year")
+        dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+
+        dt[, `:=` (month = lubridate::month(date, label = T, abbr = T))]
+       # dt[, month := lubridate::month(date, label = T, abbr = T)]
+
+        setnames(x = dt, old = c("date"), new = c("Date"))
+
+        return(dt)
     }

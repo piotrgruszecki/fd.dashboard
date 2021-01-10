@@ -30,11 +30,16 @@ golem::fill_desc(
 
 ## Set {golem} options ----
 golem::set_golem_options()
-golem::amend_golem_config(key = "dbname", value = "fd_reports")
+golem::amend_golem_config(key = "dbname",   value = "fd_reports")
 golem::amend_golem_config(key = "username", value = "fd_reports_user")
 golem::amend_golem_config(key = "password", value = "6Pb27%n_jH6J^@r&gJR-KbSxp--+8TBK")
-golem::amend_golem_config(key = "host", value = "rdsamazon.cbief3wnjkp9.eu-west-1.rds.amazonaws.com")
+golem::amend_golem_config(key = "host",     value = "rdsamazon.cbief3wnjkp9.eu-west-1.rds.amazonaws.com")
 golem::amend_golem_config(key = "encoding", value = "latin1")
+
+golem::amend_golem_config(key = "table_leads_clean", value = "bs_leads_clean")
+golem::amend_golem_config(key = "table_leads_log",   value = "bs_leads_log")
+
+
 
 
 ## Create Common Files ----

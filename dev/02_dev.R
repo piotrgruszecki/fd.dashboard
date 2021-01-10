@@ -19,6 +19,7 @@ usethis::use_package( "thinkr" )
 usethis::use_package( "data.table" )
 usethis::use_package( "lubridate" )
 usethis::use_package( "RMySQL" )
+usethis::use_package( "glue" )
 
 usethis::use_tidy_eval()
 usethis::use_pipe()

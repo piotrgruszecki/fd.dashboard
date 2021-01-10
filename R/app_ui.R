@@ -12,7 +12,13 @@ app_ui <- function(request) {
     fluidPage(
       h1("fd.dashboard"),
 
-      shiny::verbatimTextOutput(outputId = "con_prt")
+      shiny::verbatimTextOutput(outputId = "config_host"),
+      shiny::verbatimTextOutput(outputId = "con_prt"),
+      shiny::verbatimTextOutput(outputId = "leads_n_rows"),
+
+      shiny::dataTableOutput(outputId = "leads_summary_table")
+
+
     )
   )
 }
