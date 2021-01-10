@@ -16,7 +16,9 @@ app_ui <- function(request) {
       shiny::verbatimTextOutput(outputId = "con_prt"),
       shiny::verbatimTextOutput(outputId = "leads_n_rows"),
 
-      shiny::dataTableOutput(outputId = "leads_summary_table")
+      shiny::dataTableOutput(outputId = "leads_summary_table"),
+
+      mod_report_3_ui("report_3_ui_1")
 
 
     )

@@ -4,28 +4,64 @@
 #'
 #' @param id,input,output,session Internal parameters for {shiny}.
 #'
-#' @noRd 
+#' @noRd
 #'
-#' @importFrom shiny NS tagList 
-mod_report_3_ui <- function(id){
+#' @importFrom shiny NS tagList
+#' @import R6
+mod_report_3_ui <- function(id, tab_title = "Report 3"){
   ns <- NS(id)
   tagList(
- 
+
+    h2("Report 3"),
+
+    fluidRow(
+         shiny::verbatimTextOutput(outputId = ns("r6_websites")),
+         shiny::verbatimTextOutput(outputId = ns("r6_websites_number"))
+    )
+
+    # fluidRow(
+    #
+    #   column(width = 4, shinydashboard::box(
+    #     width = 12, title = "Data Subset", collapsible = TRUE, footer = "This box can be closed by minus sign above", status = "primary",
+    #     shinyWidgets::airMonthpickerInput(inputId = "year_month_selected", label = "Month to analyse:", value = lubridate::today(), minDate = "2020-10-01", maxDate = lubridate::today()),
+    #     shiny::selectInput(inputId = "countries_selected", label = "Websites (sorted by volume in last 30d):", choices = c("US", "UK"), selected = "US", multiple = TRUE),
+    #     shiny::sliderInput("aggregation_level", "Countries (Geo's) Aggregation level", 1, 5, 3, step = 1, ticks = T)
+    #     )
+    #   ),
+    #
+    #   column(width = 8, shinydashboard::box(
+    #     width = 12, title = "Overview chart as a reference", status = "primary", collapsible = TRUE, plotOutput(outputId = ns("plot_overview"))
+    #      )
+    #   )
+    #
+    # )
+
   )
 }
-    
+
 #' report_3 Server Functions
 #'
-#' @noRd 
-mod_report_3_server <- function(id){
+#' @noRd
+#' @import R6
+#' @importFrom data.table fwrite
+mod_report_3_server <- function(id, aws_buffer){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
- 
+
+    websites_choices <- aws_buffer$websites %>% stringr::str_c() %>% paste(collapse = ", ")
+    aws_buffer$websites %>% stringr::str_c() %>% as.list() %>%
+      data.table::fwrite("websites_choices.csv")
+    output$r6_websites <- shiny::renderText(glue::glue("R6 websites: {websites_choices}"))
+
+    websites_n <- aws_buffer$websites %>% length()
+    output$r6_websites_number <- shiny::renderText(glue::glue("R6 websites, number of: {websites_n}"))
+
+
   })
 }
-    
+
 ## To be copied in the UI
 # mod_report_3_ui("report_3_ui_1")
-    
+
 ## To be copied in the server
 # mod_report_3_server("report_3_ui_1")
