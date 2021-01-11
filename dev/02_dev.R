@@ -35,7 +35,7 @@ golem::add_module( name = "report_9" ) # Name of the module
 ## Creates ftc_* and utils_*
 golem::add_fct( "helpers" )
 golem::add_fct( "aws" )
-golem::add_utils( "helpers" )
+golem::add_utils( "nested_modules" )
 
 ## External resources
 ## Creates .js and .css files at inst/app/www

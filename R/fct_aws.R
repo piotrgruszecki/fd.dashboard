@@ -67,7 +67,7 @@ read_clean_leads <-
 
        # if (!exists("config")) config <- config::get(file = "00_config/config.yml")
 
-        col_subset_names <- c("date", "website_iso2c", "Date_y", "year", "month")
+        col_subset_names <- c("date", "website_iso2c", "Date_y", "year", "month", "country")
 
         table_name <- config$table_leads_clean
 
@@ -86,18 +86,22 @@ read_clean_leads <-
         return(res)
     }
 
-#' Read data for report 9
+#' Read leads data and then set proper column types
 #'
 # @importFrom data.table setDT setnames .SD  :=
 #' @import data.table
 #' @importFrom lubridate month date
 #'
 #' @export
-get_data_adapt_for_report_9 <-
+get_clean_leads <-
     function() {
 
         dt <- read_clean_leads()
         setDT(dt)
+
+        #-- set encoding, fixing special characters
+        cols.character <- dt[ , .SD, .SDcols = is.character] %>% colnames()
+        dt[, (cols.character) := lapply(.SD, `Encoding<-`, "latin1"), .SDcols = cols.character]
 
         #-- adjust column names, types so the old script can work without changes
         date_cols <- c("date", "Date_y")
@@ -109,7 +113,10 @@ get_data_adapt_for_report_9 <-
         dt[, `:=` (month = lubridate::month(date, label = T, abbr = T))]
        # dt[, month := lubridate::month(date, label = T, abbr = T)]
 
-        setnames(x = dt, old = c("date"), new = c("Date"))
+        setnames(x = dt, old = c("date", "country"), new = c("Date", "Country"))
+
+        dt[, `:=` (Country_original = Country)]
+
 
         return(dt)
     }

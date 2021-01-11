@@ -6,6 +6,7 @@
 #' @import glue glue
 #' @import R6
 #' @importFrom data.table .N .BY dcast.data.table
+#' @importFrom lubridate days
 #' @noRd
 app_server <- function( input, output, session ) {
   # Your application server logic
@@ -18,7 +19,7 @@ app_server <- function( input, output, session ) {
     #output$con_prt <- shiny::renderText(glue::glue("DB Connection type: {con %>% typeof()}"))
 
     # pull data, get number of rows
-    leads_dt <- get_data_adapt_for_report_9()
+    leads_dt <- get_clean_leads()
     leads_n_rows <- leads_dt[, .N]
     output$leads_n_rows <- shiny::renderText(glue::glue("Leads DT, .N: {leads_n_rows}"))
 
@@ -34,6 +35,7 @@ app_server <- function( input, output, session ) {
       profiles = 0,
       websites = 0,
       websites2= 0,
+      leads_dates_range = 0,
       pull_leads    = function(dates_range) {2 + 2},
       pull_profiles = function(dates_range) {3 + 3}
     ))
@@ -43,6 +45,10 @@ app_server <- function( input, output, session ) {
 
     aws_buffer$websites <- leads_dt[, unique(website_iso2c)]
     aws_buffer$websites2 <- leads_dt[, .N, .(website_iso2c, year, month)]
+
+    aws_buffer$leads_dates_range <- aws_buffer$leads[, range(Date)]
+    aws_buffer$leads_dates_range[2] <- aws_buffer$leads_dates_range[2] - lubridate::days(1)
+
 
     #-- modules below
     mod_report_3_server("report_3_ui_1", aws_buffer)

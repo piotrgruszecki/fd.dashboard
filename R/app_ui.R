@@ -10,20 +10,44 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     golem_add_external_resources(),
     # Your application UI logic
-    fluidPage(
-      h1("fd.dashboard"),
+    shinydashboard::dashboardPage(
 
-      shiny::verbatimTextOutput(outputId = "config_host"),
-      shiny::verbatimTextOutput(outputId = "con_prt"),
-      shiny::verbatimTextOutput(outputId = "leads_n_rows"),
+      #-- 1.1 dashboard header
+      shinydashboard::dashboardHeader(title = "FD dashboard"),
 
-      shiny::dataTableOutput(outputId = "leads_summary_table"),
+      #-- 1.2 dashboard sidebar
+      shinydashboard::dashboardSidebar(
+        shinydashboard::sidebarMenu(
+          shinydashboard::menuItem("3: Lead Status",     tabName = "lead_status",     icon = icon("globe-americas")),
+          shinydashboard::menuItem("9: Daily Lead Flow", tabName = "daily_lead_flow", icon = icon("globe-americas")),
+          shinydashboard::menuItem("N: Other Report",    tabName = "widgets",         icon = icon("dashboard"))
+        )
+      ),
 
-      #-- modules below
-      mod_report_3_ui("report_3_ui_1")
-
+      #-- 1.3 dashboard main body
+      shinydashboard::dashboardBody(
+        shinydashboard::tabItems(
+          shinydashboard::tabItem(tabName = "lead_status",     mod_report_3_ui("report_3_ui_1")),
+          #shinydashboard::tabItem(tabName = "daily_lead_flow", mod_report_9_ui("report_9_ui_1")),
+          shinydashboard::tabItem(tabName = "widgets", h2("Widgets tab content"))
+        )
+      )
 
     )
+
+    # fluidPage(
+    #   h1("fd.dashboard"),
+    #
+    #   shiny::verbatimTextOutput(outputId = "config_host"),
+    #   shiny::verbatimTextOutput(outputId = "con_prt"),
+    #   shiny::verbatimTextOutput(outputId = "leads_n_rows"),
+    #
+    #   shiny::dataTableOutput(outputId = "leads_summary_table"),
+    #
+    #   #-- modules below
+    #   mod_report_3_ui("report_3_ui_1")
+    #
+    # )
   )
 }
 
