@@ -72,7 +72,7 @@ read_clean_leads <-
         table_name <- config$table_leads_clean
 
         con <- get_aws_connection()
-        date_tmp <- "2020-12-01"
+        date_tmp <- "2020-10-01"
         query_txt <- glue::glue_sql(
             "SELECT {`col_subset_names`*} FROM {`table_name`} WHERE `date` >= {date_tmp}",
            # cols = cols_subset,
