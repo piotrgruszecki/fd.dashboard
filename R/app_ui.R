@@ -3,6 +3,7 @@
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
 #' @import shiny
+#' @import R6
 #' @noRd
 app_ui <- function(request) {
   tagList(
@@ -18,6 +19,7 @@ app_ui <- function(request) {
 
       shiny::dataTableOutput(outputId = "leads_summary_table"),
 
+      #-- modules below
       mod_report_3_ui("report_3_ui_1")
 
 

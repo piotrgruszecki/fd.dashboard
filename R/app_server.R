@@ -23,7 +23,7 @@ app_server <- function( input, output, session ) {
     output$leads_n_rows <- shiny::renderText(glue::glue("Leads DT, .N: {leads_n_rows}"))
 
     # aggregate by months
-    leads_summary_dt <- leads_dt[, .N, by = .(year, month)][, dcast.data.table(.SD, month ~ year)]
+    leads_summary_dt <- leads_dt[, .N, by = .(year, month)][, dcast.data.table(.SD, year ~ month)]
     output$leads_summary_table <- shiny::renderDataTable(leads_summary_dt)
 
 
