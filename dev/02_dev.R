@@ -21,6 +21,7 @@ usethis::use_package( "lubridate" )
 usethis::use_package( "RMySQL" )
 usethis::use_package( "glue" )
 usethis::use_package( "R6")
+usethis::use_package( "shinycssloaders")
 
 usethis::use_tidy_eval()
 usethis::use_pipe()

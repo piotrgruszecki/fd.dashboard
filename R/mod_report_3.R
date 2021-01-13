@@ -8,36 +8,27 @@
 #'
 #' @importFrom shiny NS tagList selectInput sliderInput verbatimTextOutput
 #' @import R6
+#' @importFrom shinycssloaders withSpinner
 mod_report_3_ui <- function(id){
   ns <- NS(id)
 
   tagList(
 
-    h2("Report 3"),
-
-    # debug printouts
-    fluidRow(
-         shiny::verbatimTextOutput(outputId = ns("r6_websites")),
-         shiny::verbatimTextOutput(outputId = ns("r6_websites_number")),
-         shiny::verbatimTextOutput(outputId = ns("dates_selected")),
-         shiny::verbatimTextOutput(outputId = ns("dates_selected2")),
-         shiny::verbatimTextOutput(outputId = ns("websites_sorted"))
-
-    ),
+    h2("Report 3: Lead Status"),
 
     # data subset & reference plot
     fluidRow(
 
       column(width = 4, shinydashboard::box(
         width = 12, title = "Data Subset", collapsible = TRUE, footer = "This box can be closed by minus sign above", status = "primary",
-        shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = lubridate::today(), minDate = "2020-10-01", maxDate = lubridate::today()),
-        shiny::selectInput(inputId = ns("countries_selected"), label = "Websites (sorted by volume in last 30d):", choices = c("US", "UK"), selected = "US", multiple = TRUE),
+        shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = (lubridate::today() - months(1)), minDate = "2020-10-01", maxDate = lubridate::today()),
+        shiny::selectInput(inputId = ns("countries_selected"), label = "Websites (sorted by volume in given month):", choices = c("US", "GB"), selected = "US", multiple = TRUE),
         shiny::sliderInput(inputId = ns("aggregation_level"), label = "Countries (Geo's) Aggregation level", 1, 5, 3, step = 1, ticks = T)
         )
       ),
 
       column(width = 8, shinydashboard::box(
-        width = 12, title = "Overview chart as a reference", status = "primary", collapsible = TRUE, plotOutput(outputId = ns("plot_01"))
+        width = 12, title = "Overview chart as a reference", status = "primary", collapsible = TRUE, plotOutput(outputId = ns("plot_01")) %>% withSpinner(color = "#0dc5c1")
          )
       )
 
@@ -54,11 +45,23 @@ mod_report_3_ui <- function(id){
           fluidRow(DT::DTOutput(outputId = ns("dt_subset")))
         ), #-- tabPanel #2
         shiny::tabPanel(title = "Countries, aggregated",
-          fluidPage(DT::DTOutput(outputId = ns("dt_subset_aggregated"))))
+          fluidPage(DT::DTOutput(outputId = ns("dt_subset_aggregated")))),
+        # debug printouts
+        shiny::tabPanel("Debug",
+          fluidPage(
+            fluidRow(
+              shiny::verbatimTextOutput(outputId = ns("r6_websites")),
+              shiny::verbatimTextOutput(outputId = ns("r6_websites_number")),
+              shiny::verbatimTextOutput(outputId = ns("dates_selected")),
+              shiny::verbatimTextOutput(outputId = ns("dates_selected2")),
+              shiny::verbatimTextOutput(outputId = ns("websites_sorted")),
+              shiny::verbatimTextOutput(outputId = ns("host")),
+              shiny::verbatimTextOutput(outputId = ns("plot.color"))
+            )
+          )
+        )
       ) #-- tabBox
     ) #-- fluidRow
-
-
   )
 }
 
@@ -68,7 +71,7 @@ mod_report_3_ui <- function(id){
 #' @import R6
 # @importFrom data.table fwrite
 #' @import data.table
-#' @importFrom lubridate %--% %within%
+#' @importFrom lubridate month year today %--% %within%
 mod_report_3_server <- function(id, aws_buffer){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
@@ -77,6 +80,8 @@ mod_report_3_server <- function(id, aws_buffer){
     aws_buffer$websites %>% stringr::str_c() %>% as.list() %>%
       data.table::fwrite("websites_available.csv")
     output$r6_websites <- shiny::renderText(glue::glue("R6 websites: {websites_available}"))
+    output$host <- shiny::renderText(glue::glue("Host: {config$host}"))
+    output$plot.color <- shiny::renderText(glue::glue("Plot Color: {config$plot.color}"))
 
     websites_n <- aws_buffer$websites %>% length()
     output$r6_websites_number <- shiny::renderText(glue::glue("R6 websites, number of: {websites_n}"))
@@ -90,7 +95,7 @@ mod_report_3_server <- function(id, aws_buffer){
                    month_sel <- lubridate::month(input$year_month_selected, label = T, abbr = T)
                    year_sel  <- lubridate::year(input$year_month_selected)
                    websites_choices <- aws_buffer$websites2[month %in% month_sel & year %in% year_sel, .(n = sum(N)), .(website_iso2c)][order(-n)][, website_iso2c]
-                   updateSelectInput(session = session, inputId = "countries_selected", choices = websites_choices, selected = websites_choices[1:3])
+                   updateSelectInput(session = session, inputId = "countries_selected", choices = websites_choices, selected = input$countries_selected)
 
                    websites_sorted <- websites_choices %>% stringr::str_c() %>% paste(collapse = ", ")
                    output$websites_sorted <- shiny::renderText(glue::glue("Websites, sorted: {websites_sorted}"))
@@ -177,7 +182,6 @@ mod_report_3_server <- function(id, aws_buffer){
     tables_numeric <- function(){
 
       tab1 <- dt_subset_aggregated_countries()[, .(leads = sum(leads)), .(Country)][order(-leads)]
-      #    tab2 <- dt_subset_aggregated_countries_websites()[, dcast.data.table(.SD, Country ~ website_iso2c, value.var = "leads")]
       tab2 <- dt_subset_aggregated_countries_websites()[, .(leads = sum(leads)), .(Country, website_iso2c)][, dcast.data.table(.SD, Country ~ website_iso2c, value.var = "leads")]
 
       tables_numeric <- list(tab1 = tab1, tab2 = tab2)

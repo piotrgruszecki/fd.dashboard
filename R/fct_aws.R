@@ -74,8 +74,9 @@ read_clean_leads <-
         con <- get_aws_connection()
         date_tmp <- "2020-10-01"
         query_txt <- glue::glue_sql(
-            "SELECT {`col_subset_names`*} FROM {`table_name`} WHERE `date` >= {date_tmp}",
-           # cols = cols_subset,
+            "SELECT {`col_subset_names`*} FROM {`table_name`} ",
+            #"SELECT {`col_subset_names`*} FROM {`table_name`} WHERE `date` >= {date_tmp}",
+            # cols = cols_subset,
             .con = con)
 
         query <- RMySQL::dbSendQuery(con, query_txt)

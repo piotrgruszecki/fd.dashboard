@@ -9,6 +9,10 @@ default:
   encoding: latin1
   table_leads_clean: bs_leads_clean
   table_leads_log: bs_leads_log
+  plot.color: '#CA0813'
+  plot.color.light: '#FC9272'
+  line_thickness: 1.0
+  spinner.color: '#0dc5c1'
 production:
   app_prod: yes
 dev:

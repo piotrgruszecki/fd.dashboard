@@ -28,7 +28,7 @@ app_ui <- function(request) {
       shinydashboard::dashboardBody(
         shinydashboard::tabItems(
           shinydashboard::tabItem(tabName = "lead_status",     mod_report_3_ui("report_3_ui_1")),
-          #shinydashboard::tabItem(tabName = "daily_lead_flow", mod_report_9_ui("report_9_ui_1")),
+          shinydashboard::tabItem(tabName = "daily_lead_flow", mod_report_9_ui("report_9_ui_1")),
           shinydashboard::tabItem(tabName = "widgets", h2("Widgets tab content"))
         )
       )

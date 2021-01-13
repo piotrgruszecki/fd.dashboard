@@ -36,8 +36,10 @@ golem::amend_golem_config(key = "password", value = "6Pb27%n_jH6J^@r&gJR-KbSxp--
 golem::amend_golem_config(key = "host",     value = "rdsamazon.cbief3wnjkp9.eu-west-1.rds.amazonaws.com")
 golem::amend_golem_config(key = "encoding", value = "latin1")
 
-golem::amend_golem_config(key = "table_leads_clean", value = "bs_leads_clean")
-golem::amend_golem_config(key = "table_leads_log",   value = "bs_leads_log")
+golem::amend_golem_config(key = "plot.color",       value = "#CA0813")
+golem::amend_golem_config(key = "plot.color.light", value = "#FC9272")
+golem::amend_golem_config(key = "line_thickness",   value = 1)
+golem::amend_golem_config(key = "spinner.color",    value = "#0dc5c1")
 
 
 
