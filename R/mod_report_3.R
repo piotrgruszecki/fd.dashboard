@@ -86,6 +86,10 @@ mod_report_3_server <- function(id, aws_buffer){
     websites_n <- aws_buffer$websites %>% length()
     output$r6_websites_number <- shiny::renderText(glue::glue("R6 websites, number of: {websites_n}"))
 
+    plot.color       <- config$plot_color
+    plot.color.light <- config$plot_light_color
+    line_thickness   <- config$line_thickness
+
     output$dates_selected  <- shiny::renderText(glue::glue("Selected dates: {input$year_month_selected}"))
     output$dates_selected2 <- shiny::renderText(glue::glue("Selected year: {lubridate::year(input$year_month_selected)}, Selected month: {lubridate::month(input$year_month_selected)}"))
 
@@ -153,7 +157,7 @@ mod_report_3_server <- function(id, aws_buffer){
       #countries_top_5 <- dt_subset()[, .(leads = sum(leads)), .(Country)][order(-leads)][1:5, Country]
       plot_01 <- dt_subset_aggregated_countries() %>%
         ggplot(aes(Date, leads, color = Country)) +
-        geom_line() +
+        geom_line(size = line_thickness) +
         theme_bw() +
         scale_color_brewer(palette = "Set1", direction = 1) +
         # scale_fill_brewer(palette = "Set1", direction = 1) +
@@ -164,7 +168,7 @@ mod_report_3_server <- function(id, aws_buffer){
       #-- 2.2.1.1 number of leads, basic plot
       plot_02 <- dt_subset_aggregated_countries() %>%
         ggplot(aes(Date, leads, color = Country)) +
-        geom_line() +
+        geom_line(size = line_thickness) +
         theme_bw() +
         scale_color_brewer(palette = "Set1", direction = 1) +
         theme(legend.position = "bottom") +

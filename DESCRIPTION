@@ -18,7 +18,13 @@ Imports:
     rlang (>= 0.1.2),
     glue,
     R6,
-    shinycssloaders
+    shinycssloaders,
+    pkgload,
+    DT,
+    scales,
+    shinyWidgets,
+    shinydashboard,
+    stringr
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.1
@@ -30,3 +36,5 @@ Suggests:
     roxygen2
 Config/testthat/edition: 3
 Language: en-US
+Depends: 
+    tidyverse

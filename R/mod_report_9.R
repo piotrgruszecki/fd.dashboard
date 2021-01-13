@@ -51,7 +51,6 @@ mod_report_9_ui <- function(id){
                         fluidRow(
                           shiny::verbatimTextOutput(outputId = ns("countries_selected")),
                           shiny::verbatimTextOutput(outputId = ns("month_selected")),
-                          #shiny::verbatimTextOutput(outputId = ns("line_thickness")),
                           shiny::verbatimTextOutput(outputId = ns("line_thickness_config")),
                           shiny::verbatimTextOutput(outputId = ns("plot.color")),
                           shiny::verbatimTextOutput(outputId = ns("host")),
@@ -89,8 +88,6 @@ mod_report_9_server <- function(id, aws_buffer){
     plot.color       <- config$plot_color
     plot.color.light <- config$plot_light_color
     line_thickness   <- config$line_thickness
-    #line_thickness   <- 1
-    #output$line_thickness <- shiny::renderText(glue::glue("Line Thikness: {line_thickness}"))
     output$line_thickness_config <- shiny::renderText(glue::glue("Line Thikness Config: {config$line_thickness}"))
     output$plot.color <- shiny::renderText(glue::glue("Plot Color Config: {config$plot.color}"))
     output$host <- shiny::renderText(glue::glue("Host Config: {config$host}"))
@@ -120,18 +117,7 @@ mod_report_9_server <- function(id, aws_buffer){
       dt <- dt[website_iso2c %in% countries_selected & month == month_selected & Date %within% charting_period, .(leads = .N), .(Date_y, year)]
       return(dt)
     })
-    #output$dt_subset <- DT::renderDT({dt_subset()})
-
-    dt_subset_test <- reactive({
-      countries_selected <- input$countries_selected
-      countries_selected <- c("US", "UK")
-      month_selected <- input$year_month_selected %>% lubridate::month(label = TRUE, abbr = TRUE)
-      month_selected <- c("Dec")
-
-      dt = data.table::copy(dt[website_iso2c %in% countries_selected & Date %within% charting_period & month == month_selected & year == 2020, .(leads = .N), .(Date, year, Country, Country_original, website_iso2c)])
-      return(dt)
-    })
-    output$dt_subset <- DT::renderDT({dt_subset_test()})
+    output$dt_subset <- DT::renderDT({dt_subset()})
 
     #-- 2.1.2 include rollmean
     dt_subset_rollmean <- reactive({
@@ -245,7 +231,7 @@ mod_report_9_server <- function(id, aws_buffer){
 
       #-- 2.2.2.2 daily numbers, rollmean = 1...7, ratio vs previous period
       plot_05 <- dt_subset_rollmean()[, .(ratio_pct = leads_rm[2]/leads_rm[1], leads_20 = leads_rm[2], leads_19 = leads_rm[1]), .(Date_y)] %>%
-        ggplot(aes(Date_y, ratio_pct, color = plot.color)) + geom_line(size = line_thickness) + theme_bw() + geom_hline(yintercept = 1, color = "grey", linetype = "dashed") +
+        ggplot(aes(Date_y, ratio_pct), color = plot.color) + geom_line(size = line_thickness) + theme_bw() + geom_hline(yintercept = 1, color = "grey", linetype = "dashed") +
         scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + scale_color_brewer(palette = "Set1") + theme(legend.position = "none") +
         labs(title = glue("Number of Leads in {month_selected} as a % of previous period"),
              subtitle = glue("Daily. Rolling average, with a {rolling_window}-days window"), y = "", x = "")
@@ -349,10 +335,12 @@ mod_report_9_server <- function(id, aws_buffer){
       setkey(x2, year)
       current_month <- lubridate::month(lubridate::today(), label = TRUE)
       #-- pct change of monthly sum
-      x5 <- x2[month %in% months_to_show, .(leads_sum_pct = 100 * round(leads_sum[2] / leads_sum[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][month <= current_month][order(-month)]
+      #x5 <- x2[month %in% months_to_show, .(leads_sum_pct = 100 * round(leads_sum[2] / leads_sum[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][month <= current_month][order(-month)]
+      x5 <- x2[month %in% months_to_show, .(leads_sum_pct = 100 * round(leads_sum[2] / leads_sum[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][order(-month)]
 
       #-- pct change of daily averages
-      x6 <- x2[month %in% months_to_show, .(leads_avg_pct = 100 * round(leads_avg[2] / leads_avg[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][month <= current_month][order(-month)]
+      #x6 <- x2[month %in% months_to_show, .(leads_avg_pct = 100 * round(leads_avg[2] / leads_avg[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][month <= current_month][order(-month)]
+      x6 <- x2[month %in% months_to_show, .(leads_avg_pct = 100 * round(leads_avg[2] / leads_avg[1], 2)), .(website_iso2c, month)][, dcast.data.table(.SD, month ~ website_iso2c)][order(-month)]
 
       tables_numeric <- list(x3 = x3, x4 = x4, x5 = x5, x6 = x6)
 
