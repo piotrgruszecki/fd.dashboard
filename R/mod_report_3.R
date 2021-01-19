@@ -115,8 +115,9 @@ mod_report_3_server <- function(id, aws_buffer){
     dt_subset <- reactive({
       countries_selected <- input$countries_selected
       month_selected <- input$year_month_selected %>% lubridate::month(label = TRUE, abbr = TRUE)
+      year_selected  <- input$year_month_selected %>% lubridate::year()
 
-      dt <- dt[website_iso2c %in% countries_selected & Date %within% charting_period & month == month_selected & year == 2020, .(leads = .N), .(Date, year, Country, Country_original, website_iso2c)]
+      dt <- dt[website_iso2c %in% countries_selected & Date %within% charting_period & month == month_selected & year == year_selected, .(leads = .N), .(Date, year, Country, Country_original, website_iso2c)]
       return(dt)
     })
     output$dt_subset <- DT::renderDT({dt_subset()})
