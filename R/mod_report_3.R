@@ -93,6 +93,9 @@ mod_report_3_server <- function(id, aws_buffer){
     output$dates_selected  <- shiny::renderText(glue::glue("Selected dates: {input$year_month_selected}"))
     output$dates_selected2 <- shiny::renderText(glue::glue("Selected year: {lubridate::year(input$year_month_selected)}, Selected month: {lubridate::month(input$year_month_selected)}"))
 
+    # Tue Jan 19 14:21:50 2021 ------------------------------
+    # update available dates - based on a dataset
+
     observeEvent(eventExpr = input$year_month_selected,
                  handlerExpr = {
 
