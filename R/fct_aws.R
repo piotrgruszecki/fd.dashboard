@@ -121,3 +121,64 @@ get_clean_leads <-
 
         return(dt)
     }
+
+# Thu Jan 21 10:55:27 2021 ------------------------------
+# profiles
+
+#' Reading subset of columns from a profiles table in aws
+#'
+#' @importFrom glue glue_sql
+#' @export
+read_clean_profiles <-
+    function() {
+
+        #-- only those, which are needed for dashboard reports
+        col_subset_names <- c("profile", "profile_id", "sales_rep", "website_iso2c", "contract_end_date", "status",
+                              "ppl_price", "ppl_price_currency",
+                              "min_investment", "min_investment_currency",
+                              "tech_date_start", "tech_date_end", "tech_prev_id", "tech_next_id")
+
+        table_name <- config$table_profiles_clean
+
+        con <- get_aws_connection()
+        query_txt <- glue::glue_sql(
+            "SELECT {`col_subset_names`*} FROM {`table_name`} ",
+            .con = con)
+
+        query <- RMySQL::dbSendQuery(con, query_txt)
+        res <- RMySQL::dbFetch(query, -1)
+        RMySQL::dbDisconnect(con)
+
+        setDT(res)
+        return(res)
+    }
+
+#' Return profiles for dashboard charting
+#' @description Reading clean profiles using [read_clean_profiles()] function, and then adjusting column types
+#' @import data.table
+#' @importFrom lubridate date
+#'
+#' @export
+get_clean_profiles() <-
+    function() {
+
+        dt <- read_clean_profiles()
+        setDT(dt)
+
+        #-- set encoding, fixing special characters
+        cols.character <- dt[ , .SD, .SDcols = is.character] %>% colnames()
+        dt[, (cols.character) := lapply(.SD, `Encoding<-`, "latin1"), .SDcols = cols.character]
+
+        #-- adjust column names, types so the old script can work without changes
+        date_cols <- c("contract_end_date", "tech_date_start", "tech_date_end")
+        dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
+
+        factor_cols <- c("website_iso2c", "status", "ppl_price_currency", "min_investment_currency")
+        dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+
+        numeric_cols <- c("ppl_price", "min_investment")
+        dt[, (numeric_cols) := lapply(.SD, as.numeric), .SDcols = numeric_cols]
+
+        return(dt)
+
+    }

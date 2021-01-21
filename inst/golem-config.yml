@@ -13,6 +13,8 @@ default:
   plot.color.light: '#FC9272'
   line_thickness: 1.0
   spinner.color: '#0dc5c1'
+  table_profiles_clean: bs_profiles_clean_tmp
+  table_profiles_log: bs_profiles_log
 production:
   app_prod: yes
 dev:
