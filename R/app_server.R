@@ -57,6 +57,7 @@ app_server <- function( input, output, session ) {
     #-- modules below
     mod_report_3_server("report_3_ui_1", aws_buffer)
     mod_report_9_server("report_9_ui_1", aws_buffer)
+    mod_report_14_server("report_14_ui_1", aws_buffer)
     mod_report_15_server("report_15_ui_1", aws_buffer)
 
 

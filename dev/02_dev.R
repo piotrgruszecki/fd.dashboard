@@ -39,6 +39,7 @@ usethis::use_r("00_global_variables")
 golem::add_module( name = "report_3" ) # Name of the module
 golem::add_module( name = "report_9" ) # Name of the module
 golem::add_module( name = "report_15" ) # Name of the module
+golem::add_module( name = "report_14" ) # Name of the module
 
 ## Add helper functions ----
 ## Creates ftc_* and utils_*

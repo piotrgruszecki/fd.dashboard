@@ -1,0 +1,296 @@
+---
+title: "FD Report 14"
+author: "Piotr G"
+date: '`r Sys.Date()`'
+papersize: a4
+output:
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+    number_sections: yes
+    toc: no
+  html_document:
+    toc: yes
+  tufte::tufte_html: default
+  pdf_document:
+    toc: no
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+fontsize: 8pt
+link-citations: yes
+#ctex: yes
+rtex: yes
+subtitle: Initial analysis
+#bibliography: skeleton.bib
+---
+
+```{r setup, echo=FALSE}
+#-- 0.0 markdown options
+knitr::opts_chunk$set(
+    echo = FALSE,
+    eval = TRUE,
+    message = FALSE,
+    warning = FALSE,
+    dpi = 300,
+    tinytex.verbose = TRUE,
+    tidy = FALSE, 
+#    cashe.extra = packageVersion('tufte'),
+    fig.align = "center"
+    )
+```
+
+
+```{r libraries}
+#-- 1.0 libraries ----
+# library(magrittr)
+# library(tidyverse)
+library(data.table)
+# library(tidyquant)
+# library(RMySQL)
+# library(lubridate)
+# library(ISOweek)
+# library(MMWRweek)
+
+#-- 1.2 Libraries own ----
+library(fd.dashboard)
+
+#-- 1.3 libraries graphical ----
+library(ggpubr)
+library(knitr)
+library(ggExtra)
+library(viridis)
+library(tufte)
+
+
+```
+
+```{r configuration}
+
+#-- 1.3. Settings ----
+Sys.setenv(R_CONFIG_ACTIVE = "default") # use "default" for for production, "development" for prototyping
+config <- config::get(file = "../inst/golem-config.yml", use_parent = TRUE)
+
+```
+
+# Purpose
+
+`r newthought('The goal')` of this document is to prepare functions for the report **14 Investment Level**.
+
+
+```{r data pull}
+
+prof_dt <- fd.dashboard::get_clean_profiles()
+prof_dt %>% str()
+
+lead_dt <- fd.dashboard::get_clean_leads()
+lead_dt %>% str()
+
+```
+
+```{r data glimpse}
+
+prof_dt[, .N, .(min_investment, min_investment_currency)]
+
+prof_dt[status == "Active", .(min_investment, min_investment_currency)][, .N, .(min_investment)][order(-N)]
+
+prof_usd_dt <- prof_dt[status == "Active" & min_investment_currency == "USD", .(min_investment)]
+
+
+min_investment_max = 1e6
+prof_usd_dt <- prof_usd_dt[min_investment <= min_investment_max, ]
+prof_usd_dt[, `:=` (min_investment = min_investment / 1e3)]
+prof_usd_dt[order(min_investment)]
+
+numbers_of_bins = 9
+prof_usd_dt[, `:=` (bins_q = cut(min_investment, breaks = unique(quantile(min_investment, probs = seq.int(0, 1, by = 1/numbers_of_bins))), include.lowest = TRUE))]
+
+prof_usd_dt[, .N, .(bins_q)][order(bins_q)]
+
+prof_usd_dt[, .N, .(bins_q)][order(bins_q)] %>%
+  ggplot(aes(bins_q, N)) +
+  geom_col()
+
+#-- regular bins
+numbers_of_bins = 9
+bin_from = 70
+bin_to   = 160
+bin_by   = 10
+prof_usd_dt[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE) )]
+
+prof_usd_dt[, .N, .(bins)][order(bins)] %>%
+  ggplot(aes(bins, N)) +
+  geom_col() +
+  theme_bw()
+
+#-- all currencies
+min_investment_max_dt <- data.table(min_investment_max      = c(10,    10,    100,   100,   100,   100,   10), # in millions
+                                    min_investment_currency = c("USD", "EUR", "ZAR", "MXN", "MYR", "SGD", "GBP"))
+min_investment_max_dt[, `:=` (min_investment_max = min_investment_max * 1e6)]
+
+setkey(prof_dt, min_investment_currency)
+setkey(min_investment_max_dt, min_investment_currency)
+
+prof_dt <- prof_dt[min_investment_max_dt]
+
+prof_dt[, `:=` (outlier = fcase(min_investment >  min_investment_max, TRUE, 
+                                min_investment <= min_investment_max, FALSE))]
+
+prof_dt[, `:=` (min_investment = min_investment / 1e3)]
+prof_dt[, .N, .(outlier, min_investment_currency, status)][, dcast.data.table(.SD, min_investment_currency ~ status + outlier)]
+prof_dt[outlier == T & min_investment_currency == "MXN" & status == "Active", ]
+
+prof_dt[, .N, .(status)]
+prof_dt[(!outlier), ]
+
+#-- chart
+prof_normal_dt <- prof_dt[!(outlier), ]
+
+numbers_of_bins = 9
+bin_from = 10
+bin_to   = 100
+bin_by   = 20
+
+prof_normal_dt[, bins := NULL]
+prof_normal_dt[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE)), by = .(min_investment_currency)]
+prof_normal_dt[, .N, .(bins, min_investment_currency)][min_investment_currency %in% c("USD"), ] %>% str()
+
+prof_normal_dt[min_investment_currency %in% c("EUR", "USD", "ZAR", "MYR", "GBP"), .N, .(bins, min_investment_currency)][order(bins)] %>%
+  ggplot(aes(bins, N)) +
+  geom_col(color = config$plot.color, fill = config$plot.color, alpha = 0.4) +
+  theme_bw() +
+  facet_wrap("min_investment_currency")
+
+prof_dt[(outlier) & status == "Active", .(profile, sales_rep, website_iso2c, min_investment, min_investment_currency, outlier)]
+prof_dt[, .N, .(is.na(min_investment), is.na(min_investment_currency))]
+
+prof_normal_dt[min_investment < 40e3 & min_investment_currency == "ZAR", min_investment] %>%
+  hist()
+
+```
+
+
+```{r investment level}
+
+#-- red profiles
+prof_dt <- fd.dashboard::get_clean_profiles()
+
+#-- identify outliers
+min_investment_max_dt <- data.table(min_investment_max      = c(10,    10,    10,    100,   100,   100,   100), # in millions
+                                    min_investment_currency = c("USD", "EUR", "GBP", "ZAR", "MXN", "MYR", "SGD"))
+#min_investment_max_dt[, `:=` (min_investment_max = min_investment_max * 1e6)]
+
+#-- threshold to define outliers
+tab_01 <- min_investment_max_dt[order(min_investment_max, min_investment_currency)]
+
+setkey(prof_dt, min_investment_currency)
+setkey(min_investment_max_dt, min_investment_currency)
+
+prof_min_set_dt <- prof_dt[min_investment_max_dt]
+
+prof_min_set_dt[, `:=` (outlier = fcase(min_investment >  min_investment_max * 1e6, TRUE, 
+                                        min_investment <= min_investment_max * 1e6, FALSE))]
+prof_min_set_dt[, `:=` (min_investment = min_investment / 1e3)]
+
+prof_min_set_dt[status == "Active", .N, .(profile_id, min_investment, min_investment_currency)]
+prof_min_set_dt[, .N, .(profile_id, min_investment, min_investment_currency, status)][, .N, .(status)]
+
+setkey(prof_min_set_dt, tech_date_start)
+prof_min_set_dt[, .SD[.N], .(profile_id)][, .N, .(profile_id, min_investment, min_investment_currency, status)][status == "Active"]
+
+#-- number of outliers, per currency and status
+table_02 <- prof_min_set_dt[, .N, .(outlier, min_investment_currency, status, min_investment_max)][, dcast.data.table(.SD, min_investment_currency + min_investment_max ~ status + outlier)][order(-Active_FALSE)]
+
+#-- undefined min_investment OR min_investment_currency
+table_03 <- prof_dt[status == "Active", .N, .(m_inv = is.na(min_investment), m_inv_c = is.na(min_investment_currency), sales_rep)][(m_inv) | (m_inv_c), .(sales_rep, N)][order(-N)]
+
+table_04 <- prof_dt[status == "Active", .N, .(m_inv = is.na(min_investment), m_inv_c = is.na(min_investment_currency), sales_rep)][, `:=` (missing_min_inv = fcase(
+  (m_inv == T | m_inv_c == T), TRUE, 
+  (m_inv == F & m_inv_c == F), FALSE))][, .(sales_rep, missing_min_inv, N)][, dcast.data.table(.SD, sales_rep ~ missing_min_inv, fill = 0)]
+setnames(table_04, c("FALSE", "TRUE"), c("OK", "missing"))
+
+table_04_sum <- table_04[, lapply(.SD, sum), .SDcols = is.numeric][, `:=` (sales_rep = "Total")]
+
+data.table::rbindlist(list(table_04, table_04_sum), use.names = T)
+
+
+#-- charting
+prof_normal_dt <- prof_min_set_dt[!(outlier), ]
+
+bin_from = 10
+bin_to   = 110
+bin_by   = 25
+currencies <- min_investment_max_dt[, min_investment_currency]
+
+prof_normal_dt[, bins := NULL]
+prof_normal_dt[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE)), by = .(min_investment_currency)]
+prof_normal_dt[, .N, .(bins, min_investment_currency)][min_investment_currency %in% currencies, ] %>% str()
+
+prof_normal_2_dt <- prof_normal_dt[, `:=` (n = 1)][min_investment_currency %in% currencies, ][, `:=` (min_investment_currency = as.factor(min_investment_currency) %>% fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())][]
+#prof_normal_2_dt %>% str()
+prof_normal_2_dt$min_investment_currency %>% levels()
+currencies_sort <- prof_normal_2_dt[, .N, .(min_investment_currency)][order(-N)][, min_investment_currency]
+
+prof_normal_2_dt[min_investment_currency %in% currencies_sort[1:3], .N, .(bins, min_investment_currency)][order(bins)] %>%
+  ggplot(aes(bins, N)) +
+  geom_col(color = config$plot.color, fill = config$plot.color, alpha = 0.4) +
+  theme_bw() +
+  facet_wrap("min_investment_currency", scales = "free_y") +
+  labs(title = "Number of Profiles, binned, per currency.", subtitle = "Only Active Profiles.", x = "", y = "")
+
+
+```
+
+```{r reduce}
+
+#-- reduce changes to only those, having changed status or min_investment, "flatten" all other changes, when status is not changed
+dt <- prof_normal_2_dt
+setkey(dt, tech_date_start, profile_id)
+dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA), min_investment_prev = shift(min_investment, type = "lag", fill = NA)), .(profile_id)]
+dt[profile_id %in% profile_id_mult_inv[1], .(status, status_prev, min_investment, min_investment_prev, tech_date_start)]
+prof_dt[profile_id %in% profile_id_mult_inv[1], ]
+
+x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start, min_investment, min_investment_prev)][status != status_prev | is.na(status_prev) | min_investment != min_investment_prev,]
+x3_dt[profile_id %in% profile_id_mult_inv[2], ]
+x3_dt[status == "Active"][profile_id %in% profile_id_mult_inv[2], ] 
+
+profile_id_mult_2_inv <- x3_dt[, .N, .(profile_id, min_investment)][, .N, .(profile_id)][N > 1][, profile_id]
+x3_dt[profile_id %in% profile_id_mult_2_inv[1], ] 
+
+profile_id_mult_2_inv[1:2]
+
+```
+
+
+```{r join leads}
+
+#-- 
+# uwzględniać leady jednokrotnie - spłaszczyć liczbę profili - tylko zmiana statusu, lub min_investment
+# 
+profile_id_mult_inv <- prof_normal_2_dt[, .N, .(profile_id, min_investment)][, .N, .(profile_id)][N > 1][order(-N)][, profile_id]
+prof_normal_2_dt[profile_id %in% profile_id_mult_inv[15], ]
+
+profile_id_mult <- prof_normal_2_dt[status == "Active", .N, .(profile_id)][order(-N)][1, profile_id]
+prof_normal_2_dt[profile_id %in% profile_id_mult, ]
+
+prof_normal_2_dt[, .(profile, profile_id, status, tech_date_start, tech_date_end, tech_prev_id, tech_next_id, min_investment, min_investment_currency)]
+
+leads_dt <- fread("../../franchisedirect/dashboards/report_14/bs_leads_clean_view.csv")
+leads_dt <- fread("../../franchisedirect/dashboards/report_14/query_result.csv")
+setkey(leads_dt, profile_id, date)
+leads_dt[, .N, .(profile_id)]
+
+prof_dt <- x3_dt[profile_id %in% profile_id_mult_2_inv[2], ] 
+setkey(prof_dt, profile_id, tech_date_start)
+
+
+x4_dt <- prof_dt[leads_dt, roll = T][, .(profile_id, status, tech_date_start, tech_date_end, min_investment)][tech_date_start >= as.Date("2020-12-16")]
+x4_dt[, .N, .(profile_id)]
+
+x4_dt[, .N, .(date = tech_date_start, min_investment)]
+x4_dt[, .N, .( min_investment)]
+
+rm(x4_dt)
+
+
+```
