@@ -20,6 +20,7 @@ app_ui <- function(request) {
         shinydashboard::sidebarMenu(
           shinydashboard::menuItem("3: Lead Status",     tabName = "lead_status",     icon = icon("globe-americas")),
           shinydashboard::menuItem("9: Daily Lead Flow", tabName = "daily_lead_flow", icon = icon("globe-americas")),
+          shinydashboard::menuItem("15: Daily Active Profiles", tabName = "daily_active_profiles", icon = icon("globe-americas")),
           shinydashboard::menuItem("N: Other Report",    tabName = "widgets",         icon = icon("dashboard"))
         )
       ),
@@ -27,8 +28,9 @@ app_ui <- function(request) {
       #-- 1.3 dashboard main body
       shinydashboard::dashboardBody(
         shinydashboard::tabItems(
-          shinydashboard::tabItem(tabName = "lead_status",     mod_report_3_ui("report_3_ui_1")),
-          shinydashboard::tabItem(tabName = "daily_lead_flow", mod_report_9_ui("report_9_ui_1")),
+          shinydashboard::tabItem(tabName = "lead_status",           mod_report_3_ui("report_3_ui_1")),
+          shinydashboard::tabItem(tabName = "daily_lead_flow",       mod_report_9_ui("report_9_ui_1")),
+          shinydashboard::tabItem(tabName = "daily_active_profiles", mod_report_15_ui("report_15_ui_1")),
           shinydashboard::tabItem(tabName = "widgets", h2("Widgets tab content"))
         )
       )

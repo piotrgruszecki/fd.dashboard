@@ -27,6 +27,9 @@ app_server <- function( input, output, session ) {
     leads_summary_dt <- leads_dt[, .N, by = .(year, month)][, dcast.data.table(.SD, year ~ month)]
     output$leads_summary_table <- shiny::renderDataTable(leads_summary_dt)
 
+    # profiles
+    profiles_dt <- fd.dashboard::get_clean_profiles()
+
 
     # Sun Jan 10 15:16:47 2021 ------------------------------
     # initiate R6 object
@@ -49,10 +52,12 @@ app_server <- function( input, output, session ) {
     aws_buffer$leads_dates_range <- aws_buffer$leads[, range(Date)]
     aws_buffer$leads_dates_range[2] <- aws_buffer$leads_dates_range[2] - lubridate::days(1)
 
+    aws_buffer$profiles <- profiles_dt
 
     #-- modules below
     mod_report_3_server("report_3_ui_1", aws_buffer)
     mod_report_9_server("report_9_ui_1", aws_buffer)
+    mod_report_15_server("report_15_ui_1", aws_buffer)
 
 
 

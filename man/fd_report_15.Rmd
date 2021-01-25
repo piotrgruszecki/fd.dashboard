@@ -1,0 +1,393 @@
+---
+title: "FD Report 15"
+author: "Piotr G"
+date: '`r Sys.Date()`'
+papersize: a4
+output:
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+    number_sections: yes
+    toc: no
+  html_document:
+    toc: yes
+  tufte::tufte_html: default
+  pdf_document:
+    toc: no
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+fontsize: 8pt
+link-citations: yes
+#ctex: yes
+rtex: yes
+subtitle: Initial analysis
+#bibliography: skeleton.bib
+---
+
+```{r setup, echo=FALSE}
+#-- 0.0 markdown options
+knitr::opts_chunk$set(
+    echo = FALSE,
+    eval = TRUE,
+    message = FALSE,
+    warning = FALSE,
+    dpi = 300,
+    tinytex.verbose = TRUE,
+    tidy = FALSE, 
+#    cashe.extra = packageVersion('tufte'),
+    fig.align = "center"
+    )
+```
+
+
+```{r libraries}
+#-- 1.0 libraries ----
+# library(magrittr)
+# library(tidyverse)
+library(data.table)
+# library(tidyquant)
+# library(RMySQL)
+# library(lubridate)
+# library(ISOweek)
+# library(MMWRweek)
+
+#-- 1.2 Libraries own ----
+library(fd.dashboard)
+
+#-- 1.3 libraries graphical ----
+library(ggpubr)
+library(knitr)
+library(ggExtra)
+library(viridis)
+library(tufte)
+
+
+```
+
+```{r configuration}
+
+#-- 1.3. Settings ----
+Sys.setenv(R_CONFIG_ACTIVE = "default") # use "default" for for production, "development" for prototyping
+config <- config::get(file = "../inst/golem-config.yml", use_parent = TRUE)
+
+```
+
+# Purpose
+
+`r newthought('The goal')` of this document is to prepare functions for the report **15 Daily Active Profiles**.
+
+
+```{r data pull}
+
+prof_tmp_dt <- fd.dashboard::get_clean_profiles()
+
+prof_tmp_dt %>% str()
+
+
+```
+
+```{r glimpse}
+
+# find out, which profiles had status X (were active) 
+
+prof_tmp_dt[, .(status, tech_date_start, tech_date_end, tech_prev_id, tech_next_id)][tech_date_end > "2020-12-20", .N, .(tech_date_end)] %>%
+    ggplot(aes(tech_date_end, N)) +
+    geom_point()
+
+
+prof_Jan18_dt <- prof_tmp_dt[, .(profile_id, profile, status, tech_date_start, tech_date_end, tech_prev_id, tech_next_id)][tech_date_end == "2021-01-18", ]
+
+setkey(prof_Jan18_dt, profile_id)
+setkey(prof_tmp_dt,   profile_id)
+
+x_dt <- prof_tmp_dt[prof_Jan18_dt[2,], nomatch = 0][, .(profile_id, profile, status, tech_date_start, tech_date_end, tech_prev_id, tech_next_id)]
+y_dt <- x_dt[, .(interval = tech_date_start %--% tech_date_end, status)]
+y_dt[1, .(interval)] y_dt[2, .(interval)]
+
+y1 <- y_dt[1,]
+y2 <- y_dt[2,]
+
+x_dt %>% key()
+setkey(x_dt, tech_date_start)
+
+x_dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA))]
+x_dt[is.na(status_prev), `:=` (status_prev = "initial")]
+x_dt[, .(status, status_prev, tech_date_start, tech_date_end)]
+x_dt %>% str()
+
+# 
+x2_dt <- x_dt[, .(status, status_prev, tech_date_start)][status != status_prev | is.na(status_prev),]
+
+test_dt <- data.table(date = c("2020-06-27", 
+                               "2020-08-03",
+                               "2020-12-23",
+                               "2020-12-24",
+                               "2020-12-25",
+                               "2021-01-01",
+                               "2021-01-12"))
+test_dt[, `:=` (date = lubridate::date(date))]
+
+setkey(x2_dt, tech_date_start)
+setkey(test_dt, date)
+
+x2_dt[test_dt, roll = +Inf][, .(tech_date_start, status)]
+
+start_date <- as.Date("2020-05-20")
+end_date <- as.Date("2021-01-20")
+
+seq_dates <- seq.Date(from = start_date, to = end_date, by = "day")
+
+dates_dt <- data.table(date = seq_dates)
+setkey(dates_dt, date)
+
+x2_dt[dates_dt, roll = +Inf][, .(tech_date_start, status)][!is.na(status)]
+
+
+```
+
+
+```{r active profiles draft}
+
+setkey(prof_tmp_dt, tech_date_start, profile_id)
+prof_tmp_dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA)), .(profile_id)]
+prof_tmp_dt[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", .(status, status_prev, tech_date_start, tech_date_end)]
+
+x3_dt <- prof_tmp_dt[, .(profile_id, status, status_prev, tech_date_start)][status != status_prev | is.na(status_prev),]
+key(x3_dt)
+setkey(x3_dt, tech_date_start, profile_id)
+x3_dt[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000"]
+
+
+analysis_period <- as.Date("2020-05-20") %--% as.Date("2021-01-20")
+seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+dates_dt <- data.table(date = seq_dates)
+setkey(dates_dt, date)
+
+x3_dt[dates_dt, roll = +Inf][, .(tech_date_start, status, profile_id)][!is.na(status)][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+x3_dt[dates_dt, roll = +Inf][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+x3_dt[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ][dates_dt, roll = +Inf][!is.na(status)][, .(status, tech_date_start)]
+
+key(x3_dt)
+
+x3_dt[dates_dt, roll = +Inf][!is.na(status)][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+x3_dt[dates_dt, roll = +Inf][, .(tech_date_start, status, profile_id)][!is.na(status)]
+
+x3_dt[, .SD[dates_dt, roll = +Inf], .(profile_id)][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ][!is.na(status)]
+
+x3_dt[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, tech_date_start)][!is.na(status)]
+
+
+#--
+end_date <- today()
+start_date <- end_date - months(1)
+analysis_period <- start_date %--% end_date
+boundary_dates <- data.table(date = c(int_start(analysis_period), 
+                                      int_end(analysis_period)))
+boundary_dates[, `:=` (date = as.Date(date))]
+setkey(boundary_dates, date)
+x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+dates_dt <- data.table(date = seq_dates)
+setkey(dates_dt, date)
+
+x4_dt <- x3_dt[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, tech_date_start)][!is.na(status)]
+
+fd.dashboard::write_table_to_aws(dt = x4_dt, table_name = "profiles_stat_daily")
+
+x4_dt[tech_date_start %within% analysis_period]
+
+x5_dt <- x3_dt[tech_date_start %within% analysis_period][profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+boundary_dates[x5_dt, roll = -Inf]
+
+x6_dt <- x3_dt[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+a1 <- boundary_dates[x6_dt, roll = -Inf]
+a2 <- x6_dt[boundary_dates, roll = +Inf]
+
+a1[, .(date, profile_id, status)]
+a1
+a2
+
+a3 <- rbindlist(list(a1[, .(profile_id, status, date)],
+               a2[, .(profile_id, status, date = tech_date_start)]))
+
+setkey(a3, date)
+a3[date %within% analysis_period & status == "Active"]
+
+#--
+end_date <- today()
+start_date <- end_date - months(1)
+analysis_period <- start_date %--% end_date
+boundary_dates <- data.table(date = c(int_start(analysis_period), 
+                                      int_end(analysis_period)))
+boundary_dates[, `:=` (date = as.Date(date))]
+setkey(boundary_dates, date)
+
+setkey(x3_dt, tech_date_start)
+b1 <- boundary_dates[x3_dt, roll = -Inf]
+b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+
+b3 <- rbindlist(list(b1[, .(profile_id, status, date)], 
+                     b2[, .(profile_id, status, date = tech_date_start)]))
+
+setkey(b3, date)
+b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+
+b3[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+b4[, .(date), .(profile_id, status)][, .N, .(date)][order(date)]
+
+b4[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+setkey(b4, profile_id)
+setkey(x3_dt, profile_id)
+
+x3_dt[b4, nomatch = 0]
+
+
+```
+
+
+
+```{r active profiles v2}
+
+#-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+setkey(prof_tmp_dt, tech_date_start, profile_id)
+prof_tmp_dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA)), .(profile_id)]
+x3_dt <- prof_tmp_dt[, .(profile_id, status, status_prev, tech_date_start)][status != status_prev | is.na(status_prev),]
+
+#-- analysis window
+end_date <- today()
+start_date <- end_date - months(3)
+analysis_period <- start_date %--% end_date
+boundary_dates <- data.table(date = c(int_start(analysis_period), 
+                                      int_end(analysis_period)))
+boundary_dates[, `:=` (date = as.Date(date))]
+setkey(boundary_dates, date)
+
+#-- limit profile_id to only those, which had Active status, sometime within the analysis window
+setkey(x3_dt, tech_date_start)
+b1 <- boundary_dates[x3_dt, roll = -Inf]
+b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+b3 <- rbindlist(list(b1[, .(profile_id, status, date)], 
+                     b2[, .(profile_id, status, date = tech_date_start)]))
+setkey(b3, date)
+b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+b5 <- b4[, .N, .(profile_id)]
+setkey(b5, profile_id)
+
+#-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+x3_dt[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+setkey(x3_dt, profile_id)
+b6 <- x3_dt[b5][, .(profile_id, status, date = tech_date_start)]
+
+#-- create dates sequence
+seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+dates_dt <- data.table(date = seq_dates)
+setkey(dates_dt, date)
+
+setkey(b6, date)
+b7 <- b6[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, date)][!is.na(status)]
+b7[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ]
+
+b7[, .N, .(profile_id, date, status)][, .N, .(date, status)] %>%
+    ggplot(aes(date, N, color = status)) +
+    geom_line() +
+    theme_bw()
+
+b7[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", ][status == "Active", ]
+
+b7[profile_id == "0000015e-ad32-d1d1-a57e-fdffbff80000", .N, .(profile_id, date, status)][, .N, .(date, status)][, dcast.data.table(.SD, date ~ status, fill = 0)][, `:=` (sum = Active + Inactive)][]
+
+b7[, .N, .(profile_id, date, status)][, .N, .(date, status)][, dcast.data.table(.SD, date ~ status, fill = 0)][, `:=` (sum = Active + Inactive)][]
+
+b7[, .N, .(profile_id, date, status)][, .N, .(date)]
+
+b7[, .N, .(profile_id, date, status)][, .(n = .N), .(profile_id)][, .N, .(n)]
+b7[, .N, .(profile_id, date, status)][, .(n = .N), .(profile_id)][order(n)]
+
+b7[profile_id == "00000177-1b19-d035-a177-bfdf61e30000"]
+
+x3_dt[profile_id == "00000177-1b19-d035-a177-bfdf61e30000"]
+prof_tmp_dt[profile_id == "00000177-1b19-d035-a177-bfdf61e30000"]
+
+b7[, unique(profile_id)] %>% length()
+
+```
+
+
+```{r active profiles functions}
+
+get_default_analysis_period <- 
+    function(){
+        end_date <- today()
+        start_date <- (end_date - months(1)) %>% floor_date(unit = "month")
+        analysis_period <- start_date %--% end_date
+        
+        return(analysis_period)
+    }
+
+get_active_profiles_daily <- 
+    function(dt, analysis_period){
+        #-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+        setkey(dt, tech_date_start, profile_id)
+        dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA)), .(profile_id)]
+        x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start)][status != status_prev | is.na(status_prev),]
+        
+        #-- analysis window
+        boundary_dates <- data.table(date = c(int_start(analysis_period), 
+                                              int_end(analysis_period)))
+        boundary_dates[, `:=` (date = as.Date(date))]
+        setkey(boundary_dates, date)
+        
+        #-- limit profile_id to only those, which had Active status, sometime within the analysis window
+        setkey(x3_dt, tech_date_start)
+        b1 <- boundary_dates[x3_dt, roll = -Inf]
+        b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+        b3 <- rbindlist(list(b1[, .(profile_id, status, date)], 
+                             b2[, .(profile_id, status, date = tech_date_start)]))
+        setkey(b3, date)
+        b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+        b5 <- b4[, .N, .(profile_id)]
+        setkey(b5, profile_id)
+        
+        #-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+        setkey(x3_dt, profile_id)
+        b6 <- x3_dt[b5][, .(profile_id, status, date = tech_date_start)]
+        
+        #-- create dates sequence
+        seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+        dates_dt <- data.table(date = seq_dates)
+        setkey(dates_dt, date)
+        
+        setkey(b6, date)
+        b7 <- b6[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, date)][!is.na(status)]
+
+        return(b7)
+    }
+
+active_profiles_daily <- 
+    function(){
+        
+        #-- pull data
+        dt <- fd.dashboard::get_clean_profiles()
+        
+        #-- default dates
+        analysis_period <- get_default_analysis_period()
+        
+        prof_daily_dt <- get_active_profiles_daily(dt, analysis_period)
+
+        return(prof_daily_dt)
+    }
+
+res_dt <- active_profiles_daily()
+
+res_dt[status == "Active", .(profiles = .N), .(date)] %>%
+    ggplot(aes(date, profiles)) +
+    geom_line() +
+    theme_bw()
+
+```

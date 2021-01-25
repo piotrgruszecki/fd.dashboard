@@ -39,8 +39,10 @@ golem::amend_golem_config(key = "encoding", value = "latin1")
 golem::amend_golem_config(key = "table_leads_clean", value = "bs_leads_clean")
 golem::amend_golem_config(key = "table_leads_log", value = "bs_leads_log")
 
-golem::amend_golem_config(key = "table_profiles_clean", value = "bs_profiles_clean")
+golem::amend_golem_config(key = "table_profiles_clean", value = "bs_profiles_clean_tmp")
 golem::amend_golem_config(key = "table_profiles_log", value = "bs_profiles_log")
+
+golem::amend_golem_config(key = "table_geo_timezones", value = "geo_tz")
 
 golem::amend_golem_config(key = "plot.color",       value = "#CA0813")
 golem::amend_golem_config(key = "plot.color.light", value = "#FC9272")
