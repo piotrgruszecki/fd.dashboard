@@ -65,9 +65,10 @@ write_table_to_aws <-
 read_clean_leads <-
     function() {
 
-       # if (!exists("config")) config <- config::get(file = "00_config/config.yml")
-
-        col_subset_names <- c("date", "website_iso2c", "Date_y", "year", "month", "country", "state_city", "publish_date")
+        col_subset_names <- c("date", "website_iso2c", "Date_y", "year", "month", "country", "state_city", "publish_date",
+                              "lead_id", "client_id", "profile_id", "lead_status", "lead_source", "credited_lead",
+                              "tech_date_start", "tech_prev_id", "tech_date_end", "tech_next_id",
+                              "available_cash", "currency")
 
         table_name <- config$table_leads_clean
 
@@ -75,8 +76,6 @@ read_clean_leads <-
         date_tmp <- "2020-10-01"
         query_txt <- glue::glue_sql(
             "SELECT {`col_subset_names`*} FROM {`table_name`} ",
-            #"SELECT {`col_subset_names`*} FROM {`table_name`} WHERE `date` >= {date_tmp}",
-            # cols = cols_subset,
             .con = con)
 
         query <- RMySQL::dbSendQuery(con, query_txt)
@@ -108,14 +107,13 @@ get_clean_leads <-
         date_cols <- c("date", "Date_y")
         dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
 
-        date_time_cols <- c("publish_date")
+        date_time_cols <- c("publish_date", "tech_date_start", "tech_date_end")
         dt[, (date_time_cols) := lapply(.SD, lubridate::ymd_hms), .SDcols = date_time_cols]
 
         factor_cols <- c("website_iso2c", "year")
         dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
 
         dt[, `:=` (month = lubridate::month(date, label = T, abbr = T))]
-       # dt[, month := lubridate::month(date, label = T, abbr = T)]
 
         setnames(x = dt, old = c("date", "country"), new = c("Date", "Country"))
 
@@ -136,7 +134,7 @@ read_clean_profiles <-
     function() {
 
         #-- only those, which are needed for dashboard reports
-        col_subset_names <- c("profile", "profile_id", "sales_rep", "website_iso2c", "contract_end_date", "status",
+        col_subset_names <- c("profile", "client_id", "profile_id", "sales_rep", "website_iso2c", "contract_end_date", "status",
                               "ppl_price", "ppl_price_currency",
                               "min_investment", "min_investment_currency",
                               "tech_date_start", "tech_date_end", "tech_prev_id", "tech_next_id")
@@ -224,7 +222,7 @@ get_active_profiles_daily <-
         boundary_dates[, `:=` (date = as.Date(date))]
         setkey(boundary_dates, date)
 
-        #-- limit profile_id to only those, which had Active status, sometime within the analysis window
+        #-- limit profile_id to only these, which had Active status, sometime within the analysis window
         setkey(x3_dt, tech_date_start)
         b1 <- boundary_dates[x3_dt, roll = -Inf]
         b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
@@ -235,7 +233,7 @@ get_active_profiles_daily <-
         b5 <- b4[, .N, .(profile_id)]
         setkey(b5, profile_id)
 
-        #-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+        #-- select only these profile_id, which have at least one day active within the period (the purpose of b5)
         setkey(x3_dt, profile_id)
         b6 <- x3_dt[b5][, .(profile_id, status, date = tech_date_start)]
 
@@ -250,4 +248,51 @@ get_active_profiles_daily <-
         return(b7)
     }
 
+#' Get active profiles, per each day, with a minimum_investment per each day
+#' @description Function is very similar to [get_active_profiles_daily()], but it also takes into account changes of minimum investment levels
+#' @import data.table
+#' @importFrom lubridate %within% int_start int_end
+#' @export
+get_profiles_investment_daily <- function(dt, analysis_period){
+
+    #-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+    setkey(dt, tech_date_start, profile_id)
+    dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA),
+               min_investment_k_prev = shift(min_investment_k, type = "lag", fill = NA)), .(profile_id)]
+
+    x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start, min_investment_k, min_investment_k_prev, min_investment_currency)
+    ][status != status_prev | is.na(status_prev) | min_investment_k != min_investment_k_prev | (!is.na(min_investment_k) & is.na(min_investment_k_prev)),]
+
+    #-- analysis window
+    boundary_dates <- data.table(date = c(lubridate::int_start(analysis_period),
+                                          lubridate::int_end(analysis_period)))
+    boundary_dates[, `:=` (date = as.Date(date))]
+    setkey(boundary_dates, date)
+
+    #-- limit profile_id to only those, which had Active status, sometime within the analysis window
+    setkey(x3_dt, tech_date_start)
+    b1 <- boundary_dates[x3_dt, roll = -Inf]
+    b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+    b3 <- rbindlist(list(b1[, .(profile_id, status, min_investment_k, date)],
+                         b2[, .(profile_id, status, min_investment_k, date = tech_date_start)]))
+
+    setkey(b3, date)
+    b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+    b5 <- b4[, .N, .(profile_id)]
+    setkey(b5, profile_id)
+
+    #-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+    setkey(x3_dt, profile_id)
+    b6 <- x3_dt[b5][, .(profile_id, status, min_investment_k, min_investment_currency, date = tech_date_start)]
+
+    #-- create dates sequence
+    seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+    dates_dt <- data.table(date = seq_dates)
+    setkey(dates_dt, date)
+
+    setkey(b6, date)
+    b7 <- b6[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, min_investment_k, min_investment_currency, date)][!is.na(status)]
+
+    return(b7)
+}
 

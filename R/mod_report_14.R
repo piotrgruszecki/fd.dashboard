@@ -32,37 +32,42 @@ mod_report_14_ui <- function(id){
 
     # actual plots
     fluidRow(
-      shinydashboard::tabBox(title = "First tabBox", id = "tabset1", height = "250px", width = 12,
-                             shiny::tabPanel(title = "Min Inv",
+      shinydashboard::tabBox(title = "Data analysis", id = "tabset1", width = 12, #height = "250px",
+         shiny::tabPanel(title = "Min Inv",
 
-                                  fluidRow(
-                                    shinydashboard::box(width = 12,
-                                          column(width = 4, shiny::selectInput(inputId = ns("currencies_selected"), label = "Currencies (min investment):", choices = c("USD", "EUR", "GBP", "ZAR", "MXN", "MYR", "SGD"), selected = c("USD", "EUR", "GBP"), multiple = TRUE)),
-                                          column(width = 4, shiny::sliderInput(ns("min_investment_boundaries"), "Min/Max cuts [k]:", min = 0, max = 300, value = c(0, 150), step = 10, ticks = T)),
-                                          column(width = 4, shiny::sliderInput(ns("min_investment_bin"), "Bin width [k]:", min = 10, max = 60, value = c(20), step = 10, ticks = T)))
-                                  ),
-                                  fluidRow(shinydashboard::box(width = 12, title = "Chart.",  plotOutput(outputId = ns("plot_01")))),
-                                  fluidRow(shinydashboard::box(width = 12, title = "Tabular presentation.", DT::DTOutput(outputId = ns("table_01"))))
+              fluidRow(
+                shinydashboard::box(width = 12,
+                      column(width = 4, shiny::selectInput(inputId = ns("currencies_selected"), label = "Currencies (min investment):", choices = c("USD", "EUR", "GBP", "ZAR", "MXN", "MYR", "SGD"), selected = c("USD", "EUR", "GBP"), multiple = TRUE)),
+                      column(width = 4, shiny::sliderInput(ns("min_investment_boundaries"), "Min/Max cuts [k]:", min = 0, max = 300, value = c(0, 150), step = 10, ticks = T)),
+                      column(width = 4, shiny::sliderInput(ns("min_investment_bin"), "Bin width [k]:", min = 10, max = 60, value = c(20), step = 10, ticks = T)))
+              ),
+              fluidRow(shinydashboard::box(width = 12, title = "Investment level Over Time (A).",  plotOutput(outputId = ns("plot_02")))),
+              fluidRow(shinydashboard::box(width = 12, title = "Investment level Snapshot (B)",  plotOutput(outputId = ns("plot_01")))),
 
-                             ), #-- tabPanel #1
-                             shiny::tabPanel(title = "Outliers",
-                                  fluidRow(shinydashboard::box(width = 8, title = "Number of outliers (TRUE) vs currency, status.", footer = "Outliers are above by the cut-off threshold.", DT::DTOutput(outputId = ns("min_investment_outliers"))))
-                             ), #-- tabPanel #2
-                             shiny::tabPanel(title = "Missing",
-                                  fluidRow(shinydashboard::box(width = 8, title = "Missing data - no Minimum Investment level vs Sales Rep. Only Active Profiles.", DT::DTOutput(outputId = ns("missing_investment_table"))))
-                             ),
-                             # debug printouts
-                             shiny::tabPanel("Debug",
-                                  fluidPage(
-                                      fluidRow(
-                                          shiny::verbatimTextOutput(outputId = ns("host")),
-                                          shiny::verbatimTextOutput(outputId = ns("plot.color"))
-                                      )
-                                  )
-                             )
+              fluidRow(shinydashboard::box(width = 12, title = "Tabular presentation.", DT::DTOutput(outputId = ns("table_01"))))
+         ) #-- tabPanel
       ) #-- tabBox
-    ) #-- fluidRow
+    ), #-- fluidRow
 
+    fluidRow(
+      shinydashboard::tabBox(title = tagList(shiny::icon("gear"), "Data quality"), id = "tabset2", width = 12, # height = "250px",
+        shiny::tabPanel(title = "Outliers",
+          fluidRow(shinydashboard::box(width = 8, title = "Number of outliers (TRUE) vs currency, status.", footer = "Outliers are above by the cut-off threshold.", DT::DTOutput(outputId = ns("min_investment_outliers"))))
+        ), #-- tabPanel #2
+        shiny::tabPanel(title = "Missing",
+          fluidRow(shinydashboard::box(width = 8, title = "Missing data - no Minimum Investment level vs Sales Rep. Only Active Profiles.", DT::DTOutput(outputId = ns("missing_investment_table"))))
+        ),
+      # debug printouts
+      shiny::tabPanel("Debug",
+        fluidPage(
+          fluidRow(
+            shiny::verbatimTextOutput(outputId = ns("host")),
+            shiny::verbatimTextOutput(outputId = ns("plot.color"))
+          )
+        )
+      ) #-- tabPanel Debug
+    )
+  )
   )
 }
 
@@ -104,6 +109,7 @@ mod_report_14_server <- function(id, aws_buffer){
                                  min_investment <= min_investment_max * 1e6, FALSE))]
       dt[, `:=` (min_investment = min_investment / 1e3)]
 
+      #-- take the most recent
       setkey(dt, tech_date_start)
       dt <- dt[, .SD[.N], .(profile_id)][, .N, .(profile_id, min_investment, min_investment_currency, status, outlier, min_investment_max)]
 
@@ -146,6 +152,44 @@ mod_report_14_server <- function(id, aws_buffer){
     })
     output$missing_investment_table <- DT::renderDT({missing_inv_table()})
 
+    #-- minimum investment per profile, daily
+    prof_inv_daily_dt <- reactive({
+
+      #-- start with full dataset
+      dt <- prof_dt
+
+      #-- new variable, for clarity
+      dt[, `:=` (min_investment_k = min_investment / 1e3)]
+
+      analysis_period_start <- input$year_month_selected
+      analysis_period_end  <- ifelse(lubridate::floor_date(lubridate::today(), unit = "month") == input$year_month_selected[1], # condition
+                                     lubridate::today(), # TRUE
+                                     lubridate::ceiling_date(input$year_month_selected[1], unit = "months") - lubridate::days(1)) %>% as.Date(origin = "1970-01-01") # FALSE
+      analysis_period <- analysis_period_start %--% analysis_period_end
+
+      res_dt <- get_profiles_investment_daily(dt = dt, analysis_period = analysis_period)
+      res_dt[, `:=` (n = 1)]
+
+      return(res_dt)
+    })
+
+    #-- assign bins, separately on each day
+    prof_inv_daily_binned_dt <- reactive({
+
+      #-- start with daily numbers of investment level, per profile
+      dt <- prof_inv_daily_dt()
+
+      bin_from = input$min_investment_boundaries[1]
+      bin_to   = input$min_investment_boundaries[2]
+      bin_by   = input$min_investment_bin
+      currencies = input$currencies_selected
+
+      dt <- dt[min_investment_currency %in% currencies, ][, `:=` (bins = cut(min_investment_k, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE, ordered_result = TRUE)), by = .(min_investment_currency, date)]
+
+      dt[, `:=` (min_investment_currency = fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())]
+
+      return(dt)
+    })
 
     #-- charting
     plot_min_investment <- function(){
@@ -160,36 +204,62 @@ mod_report_14_server <- function(id, aws_buffer){
 
       dt_2 <- dt[, `:=` (n = 1)][min_investment_currency %in% currencies, ][, `:=` (min_investment_currency = as.factor(min_investment_currency) %>% fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())][]
 
-      dt_2[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE)), by = .(min_investment_currency)]
+      dt_2[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE, ordered_result = TRUE)), by = .(min_investment_currency)]
 
       dt_3 <- dt_2[, .N, .(bins, min_investment_currency)][order(bins)]
 
       plot_01 <- dt_3 %>%
-        ggplot(aes(bins, N)) +
-        geom_col(color = config$plot.color, fill = config$plot.color, alpha = 0.4) +
+        ggplot(aes(bins, N, color = bins, fill = bins)) +
+        geom_col(alpha = 0.4) +
+        scale_color_viridis_d(option = "D", direction = -1) +
+        scale_fill_viridis_d(option = "D", direction = -1) +
         theme_bw() +
         facet_wrap("min_investment_currency", scales = "free_y") +
-        labs(title = "Number of Profiles, binned, per currency.", subtitle = stringr::str_glue("Only Active Profiles. Snapshot for today: {lubridate::today()}"), x = "", y = "")
+        labs(title = "Number of Profiles, binned, per currency.", subtitle = stringr::str_glue("Only Active Profiles. Snapshot for today: {lubridate::today()}"), x = "", y = "") +
+        theme(legend.position = "bottom") +
+        guides(colour = guide_legend(nrow = 1))
 
       dt_4     <- dt_3[, dcast.data.table(.SD, bins ~ min_investment_currency, value.var = "N")]
       dt_4_sum <- dt_3[, dcast.data.table(.SD, bins ~ min_investment_currency, value.var = "N", fill = 0)][, purrr::map(.SD, sum), .SDcols = is.numeric][, `:=` (bins = "Total")]
       table_01 <- data.table::rbindlist(list(dt_4, dt_4_sum), use.names = T)
 
-      plot_min_investment_list <- list(plot_01 = plot_01, table_01 = table_01)
+      #-- as a time series for the analysis period
+      plot_02 <- prof_inv_daily_binned_dt()[!is.na(min_investment_currency) & min_investment_currency %in% currencies & status == "Active", .N, .(date, bins, min_investment_currency)] %>%
+        ggplot(aes(date, N, color = bins, fill = bins)) +
+        geom_area(alpha = 0.5) +
+        scale_color_viridis_d(option = "D", direction = -1) +
+        scale_fill_viridis_d(option = "D", direction = -1) +
+        facet_wrap("min_investment_currency", scales = "free_y") +
+        theme_bw() +
+        labs(title = "Number of Profiles, binned daily, per currency.", subtitle = stringr::str_glue("Only Active Profiles."), x = "", y = "") +
+        theme(legend.position = "bottom") +
+        guides(colour = guide_legend(nrow = 1))
+
+
+      plot_03 <- prof_inv_daily_binned_dt()[date == max(date) & !is.na(min_investment_currency) & min_investment_k <= 100 & status == "Active", .(curr = min_investment_currency, min_investment_k)] %>%
+        ggpubr::ggdensity(x = "min_investment_k", y = "..density..", color = "curr", fill = "curr", alpha = 0.3, add = "median", title = "Relative density, all profiles in currency = 1.") +
+        ggpubr::theme_classic2()
+
+
+      plot_min_investment_list <- list(plot_01 = plot_01, plot_02 = plot_02, plot_03 = plot_03, table_01 = table_01)
       return(plot_min_investment_list)
     }
     output$plot_01  <- renderPlot({plot_min_investment()["plot_01"]})
+    output$plot_02  <- renderPlot({plot_min_investment()["plot_02"]})
+    output$plot_03  <- renderPlot({plot_min_investment()["plot_03"]})
     output$table_01 <- DT::renderDT({plot_min_investment()$table_01})
 
+    #-- plot changes over time
 
 
-    output$plot_03       <- renderPlot({shinipsum::random_ggplot(type = "density")})
-    output$plot_02       <- renderPlot({shinipsum::random_ggplot(type = "bar")})
+
+
+    #output$plot_03       <- renderPlot({shinipsum::random_ggplot(type = "density")})
+    #output$plot_02       <- renderPlot({shinipsum::random_ggplot(type = "bar")})
 
     output$table_1       <- DT::renderDT({shinipsum::random_DT(nrow = 5, ncol = 3, type = "numeric")})
     output$table_2       <- DT::renderDT({shinipsum::random_DT(nrow = 5, ncol = 3, type = "numeric")})
     output$dt_missing    <- DT::renderDT({shinipsum::random_DT(nrow = 5, ncol = 3, type = "numeric")})
-
 
   })
 }

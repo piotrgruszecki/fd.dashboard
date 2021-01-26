@@ -48,7 +48,7 @@ knitr::opts_chunk$set(
 library(data.table)
 # library(tidyquant)
 # library(RMySQL)
-# library(lubridate)
+library(lubridate)
 # library(ISOweek)
 # library(MMWRweek)
 
@@ -80,11 +80,11 @@ config <- config::get(file = "../inst/golem-config.yml", use_parent = TRUE)
 
 ```{r data pull}
 
-prof_dt <- fd.dashboard::get_clean_profiles()
-prof_dt %>% str()
+prof_raw_dt <- fd.dashboard::get_clean_profiles()
+prof_raw_dt %>% str()
 
-lead_dt <- fd.dashboard::get_clean_leads()
-lead_dt %>% str()
+lead_raw_dt <- fd.dashboard::get_clean_leads()
+lead_raw_dt %>% str()
 
 ```
 
@@ -262,7 +262,7 @@ profile_id_mult_2_inv[1:2]
 ```
 
 
-```{r join leads}
+```{r join leads draft}
 
 #-- 
 # uwzględniać leady jednokrotnie - spłaszczyć liczbę profili - tylko zmiana statusu, lub min_investment
@@ -292,5 +292,253 @@ x4_dt[, .N, .( min_investment)]
 
 rm(x4_dt)
 
+```
+
+```{r reduce 2}
+
+#-- reduce changes to only those, having changed status or min_investment, "flatten" all other changes, when status is not changed
+dt <- prof_raw_dt
+setkey(dt, tech_date_start, profile_id)
+dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA), min_investment_prev = shift(min_investment, type = "lag", fill = NA)), .(profile_id)]
+dt[profile_id %in% profile_id_mult_inv[1], .(status, status_prev, min_investment, min_investment_prev, tech_date_start)]
+dt[profile_id %in% profile_x_id, .(profile_id, status, status_prev, tech_date_start, min_investment, min_investment_prev)]
+
+x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start, min_investment, min_investment_prev)][status != status_prev | is.na(status_prev) | min_investment != min_investment_prev | (!is.na(min_investment) & is.na(min_investment_prev)),]
+x3_dt[profile_id %in% profile_x_id, ]
+
+profile_id_mult_inv <- prof_dt[!is.na(min_investment), .N, .(profile_id, min_investment)][, .N, .(profile_id)][N > 1][order(-N)][, profile_id]
+x3_dt[profile_id %in% profile_id_mult_inv & status == "Active", ]
+x3_dt[profile_id %in% profile_id_mult_inv[3], ]
+
+
+
+
+
+profile_id_mult_2_inv <- x3_dt[, .N, .(profile_id, min_investment)][, .N, .(profile_id)][N > 1][, profile_id]
+x3_dt[profile_id %in% profile_id_mult_2_inv[1], ] 
+
+profile_id_mult_2_inv[1:2]
+
 
 ```
+
+
+```{r min inv daily }
+
+dt <- prof_raw_dt
+
+        #-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+setkey(dt, tech_date_start, profile_id)
+dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA), min_investment_prev = shift(min_investment, type = "lag", fill = NA)), .(profile_id)]
+
+x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start, min_investment, min_investment_prev, min_investment_currency)][status != status_prev | is.na(status_prev) | min_investment != min_investment_prev | (!is.na(min_investment) & is.na(min_investment_prev)),]
+#x3_dt[profile_id %in% profile_id_mult_inv[1], ]
+        
+        
+        #-- analysis window
+        boundary_dates <- data.table(date = c(lubridate::int_start(analysis_period),
+                                              lubridate::int_end(analysis_period)))
+        boundary_dates[, `:=` (date = as.Date(date))]
+        setkey(boundary_dates, date)
+
+        #-- limit profile_id to only those, which had Active status, sometime within the analysis window
+        setkey(x3_dt, tech_date_start)
+        b1 <- boundary_dates[x3_dt, roll = -Inf]
+        b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+        b3 <- rbindlist(list(b1[, .(profile_id, status, min_investment, date)],
+                             b2[, .(profile_id, status, min_investment, date = tech_date_start)]))
+        
+        setkey(b3, date)
+
+        b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+        b5 <- b4[, .N, .(profile_id)]
+        setkey(b5, profile_id)
+
+        #-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+        setkey(x3_dt, profile_id)
+        b6 <- x3_dt[b5][, .(profile_id, status, min_investment, min_investment_currency, date = tech_date_start)]
+b6[profile_id %in% profile_id_mult_inv[4], ]
+
+        
+        #-- create dates sequence
+        seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+        dates_dt <- data.table(date = seq_dates)
+        setkey(dates_dt, date)
+
+        setkey(b6, date)
+        b7 <- b6[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, min_investment, min_investment_currency, date)][!is.na(status)]
+b7[profile_id %in% profile_id_mult_inv[4], ]
+
+        return(b7)
+
+#-- calculate bins for min_inv daily
+b7_profile_id <- b7[, .N, .(profile_id, date)][N > 1, profile_id]    
+b7[profile_id %in% b7_profile_id[1], ]
+b7[, .N, .(status)]
+
+b7[status == "Active" & date > "2020-12-16", .N, .(date, min_investment_currency)] %>%
+  ggplot(aes(date, N, color = min_investment_currency)) +
+  geom_line()
+
+
+bin_from <- 10
+bin_to <- 100
+bin_by <- 20
+b7[, `:=` (min_investment = min_investment / 1e3)]
+b7[, `:=` (bins = cut(min_investment, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE)), by = .(min_investment_currency, date)]
+b7[, `:=` (bins = fct_rev(bins))]
+
+currencies <- b7[, unique(min_investment_currency)]
+b7 <- b7[status == "Active" & date > "2020-12-16" & min_investment_currency %in% currencies, ]
+b7[, `:=` (n = 1)]
+b7 <- b7[, `:=` (min_investment_currency = as.factor(min_investment_currency) %>% fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())]
+b7 <- b7[, `:=` (min_investment_currency = fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())]
+b7[, .(sum(n)), .(min_investment_currency)][order(-V1)]
+      
+b7 %>% str()
+
+b7[status == "Active" & date > "2020-12-16" & min_investment_currency == "USD", .N, .(date, bins)] %>%
+  ggplot(aes(date, N, color = bins, fill = bins)) +
+  geom_area(alpha = 0.5) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_color_brewer(palette = "Set1")
+
+
+plot_01 <- b7[!is.na(min_investment_currency), .N, .(date, bins, min_investment_currency)] %>%
+  ggplot(aes(date, N, color = bins, fill = bins)) +
+  geom_area(alpha = 0.5) +
+  scale_color_viridis_d(option = "") +
+  scale_fill_viridis_d(option = "D") +
+  # scale_fill_brewer(palette = "Set1") +
+  # scale_color_brewer(palette = "Set1") +
+  facet_wrap("min_investment_currency", scales = "free_y") +
+  theme_bw() +
+  labs(title = "Number of Profiles, binned, per currency.", subtitle = stringr::str_glue("Only Active Profiles."), x = "", y = "") +
+  theme(legend.position = "right", legend.direction = "vertical")
+
+
+
+
+
+```
+
+```{r get profiles investment daily}
+
+get_profiles_investment_daily <- function(dt, analysis_period){
+  
+  #-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+  setkey(dt, tech_date_start, profile_id)
+  dt[, `:=` (status_prev = shift(status, type = "lag", fill = NA), 
+             min_investment_k_prev = shift(min_investment_k, type = "lag", fill = NA)), .(profile_id)]
+  
+  x3_dt <- dt[, .(profile_id, status, status_prev, tech_date_start, min_investment_k, min_investment_k_prev, min_investment_currency)
+              ][status != status_prev | is.na(status_prev) | min_investment_k != min_investment_k_prev | (!is.na(min_investment_k) & is.na(min_investment_k_prev)),]
+
+  #-- analysis window
+  boundary_dates <- data.table(date = c(lubridate::int_start(analysis_period),
+                                        lubridate::int_end(analysis_period)))
+  boundary_dates[, `:=` (date = as.Date(date))]
+  setkey(boundary_dates, date)
+  
+  #-- limit profile_id to only those, which had Active status, sometime within the analysis window
+  setkey(x3_dt, tech_date_start)
+  b1 <- boundary_dates[x3_dt, roll = -Inf]
+  b2 <- x3_dt[, .SD[boundary_dates, roll = +Inf], .(profile_id)]
+  b3 <- rbindlist(list(b1[, .(profile_id, status, min_investment_k, date)],
+                       b2[, .(profile_id, status, min_investment_k, date = tech_date_start)]))
+  
+  setkey(b3, date)
+  b4 <- b3[, .SD[date %within% analysis_period & status == "Active", ], .(profile_id) ]
+  b5 <- b4[, .N, .(profile_id)]
+  setkey(b5, profile_id)
+  
+  #-- select only these profile_id, which have at least one day active within the period (the pupose of b5)
+  setkey(x3_dt, profile_id)
+  b6 <- x3_dt[b5][, .(profile_id, status, min_investment_k, min_investment_currency, date = tech_date_start)]
+
+  #-- create dates sequence
+  seq_dates <- seq.Date(from = as.Date(int_start(analysis_period)), to = as.Date(int_end(analysis_period)), by = "day")
+  dates_dt <- data.table(date = seq_dates)
+  setkey(dates_dt, date)
+  
+  setkey(b6, date)
+  b7 <- b6[, .SD[dates_dt, roll = +Inf], .(profile_id)][, .(profile_id, status, min_investment_k, min_investment_currency, date)][!is.na(status)]
+
+  return(b7)
+}
+
+
+get_investment_bins_daily <- function(dt){
+  
+  bin_from <- 10
+  bin_to <- 100
+  bin_by <- 20
+  currencies <- prof_inv_dt[, unique(min_investment_currency)]
+  
+  dt[, `:=` (bins = cut(min_investment_k, breaks = c(-Inf, seq.int(from = bin_from, to = bin_to, by = bin_by), Inf), include.lowest = TRUE)), by = .(min_investment_currency, date)]
+  dt[, `:=` (bins = fct_rev(bins))]
+  
+  dt[, `:=` (min_investment_currency = fct_reorder(.f = min_investment_currency, .x = n, .fun = sum) %>% fct_rev())]
+  
+  return(dt)
+}
+
+
+#-- test functions
+prof_raw_dt <- fd.dashboard::get_clean_profiles()
+analysis_period <- "2020-12-16" %--% today()
+
+prof_dt <- prof_raw_dt
+prof_dt[, `:=` (min_investment_k = min_investment / 1e3)]
+
+prof_inv_dt <- get_profiles_investment_daily(dt = prof_dt, analysis_period = analysis_period)
+prof_inv_dt[, `:=` (n = 1)]
+
+prof_inv_dt <- get_investment_bins_daily(prof_inv_dt)
+
+plot_01 <- prof_inv_dt[!is.na(min_investment_currency) & status == "Active", .N, .(date, bins, min_investment_currency)] %>%
+  ggplot(aes(date, N, color = bins, fill = bins)) +
+  geom_area(alpha = 0.5) +
+  scale_color_viridis_d(option = "D") +
+  scale_fill_viridis_d(option = "D") +
+  facet_wrap("min_investment_currency", scales = "free_y") +
+  theme_bw() +
+  labs(title = "Number of Profiles, binned, per currency.", subtitle = stringr::str_glue("Only Active Profiles."), x = "", y = "") +
+  theme(legend.position = "bottom") +
+  guides(colour = guide_legend(nrow = 1))
+
+setkey(prof_inv_dt, date)
+prof_inv_dt[, .N, .(min_investment_currency) ]
+            
+prof_inv_dt[date == max(date) & !is.na(min_investment_currency), lapply(.SD, fivenum), .(min_investment_currency), .SDcols = "min_investment_k"]
+
+prof_inv_dt[date == max(date) & !is.na(min_investment_currency) & min_investment_k <= 100 & status == "Active", .(curr = min_investment_currency, min_investment_k)] %>%
+  ggpubr::ggdensity(x = "min_investment_k", y = "..density..", color = "curr", fill = "curr", alpha = 0.3, add = "median") +
+  theme_classic2() 
+
+
+```
+
+```{r join leads}
+
+#-- trim leads
+analysis_period <- "2020-12-01" %--% today()
+lead_dt <- lead_raw_dt[Date %within% analysis_period]
+
+
+prof_raw_dt[, .N, .(client_id, profile_id)][, .N, .(client_id)][N > 1]
+prof_raw_dt[, .N, .(client_id, profile_id)][, .N, .(profile_id)][N > 1]
+
+prof_raw_dt[profile_id == "0000015c-d713-d671-affd-d7bfba8c0000"]
+lead_raw_dt[profile_id == "0000015c-d713-d671-affd-d7bfba8c0000"]
+
+profile_x_id <- "0000015c-d713-d671-affd-d7bfe6fb0000"
+
+prof_raw_dt[profile_id %in% profile_x_id]
+lead_dt[profile_id %in% profile_x_id]
+
+x1 <- get_active_profiles_daily(dt = prof_dt, analysis_period = analysis_period)
+
+
+```
+
