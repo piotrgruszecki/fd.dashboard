@@ -28,6 +28,8 @@ usethis::use_package( "scales" )
 usethis::use_package( "shinyWidgets" )
 usethis::use_package( "shinydashboard" )
 usethis::use_package( "stringr" )
+usethis::use_package( "ggpubr" )
+
 
 
 usethis::use_tidy_eval()

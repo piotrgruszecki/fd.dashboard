@@ -275,8 +275,8 @@ prof_normal_2_dt[profile_id %in% profile_id_mult, ]
 
 prof_normal_2_dt[, .(profile, profile_id, status, tech_date_start, tech_date_end, tech_prev_id, tech_next_id, min_investment, min_investment_currency)]
 
-leads_dt <- fread("../../franchisedirect/dashboards/report_14/bs_leads_clean_view.csv")
-leads_dt <- fread("../../franchisedirect/dashboards/report_14/query_result.csv")
+#leads_dt <- fread("../../franchisedirect/dashboards/report_14/bs_leads_clean_view.csv")
+#leads_dt <- fread("../../franchisedirect/dashboards/report_14/query_result.csv")
 setkey(leads_dt, profile_id, date)
 leads_dt[, .N, .(profile_id)]
 
