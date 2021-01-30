@@ -21,7 +21,7 @@ mod_report_9_ui <- function(id){
     fluidRow(
       column(width = 4,
              shinydashboard::box(width = 12, title = "Data Subset", collapsible = TRUE, footer = "This box can be closed by minus sign above", status = "primary",
-                 shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = "2020-12-01", minDate = "2020-10-01", maxDate = lubridate::today()),
+                 shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = lubridate::today(), minDate = "2020-10-01", maxDate = lubridate::today()),
                  shiny::selectInput(inputId = ns("countries_selected"), label = "Countries (sorted by volume in a given month):", choices = c("US", "GB"), selected = "US", multiple = TRUE)),
              shinydashboard::box(width = 12, title = "Charting Options", collapsible = TRUE, status = "primary", shiny::sliderInput(ns("rolling_window"), "Rolling Window [days]:", 1, 7, 3, step = 1, ticks = T))
       ),

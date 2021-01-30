@@ -6,6 +6,11 @@
 \usage{
 get_profiles_investment_daily(dt, analysis_period)
 }
+\arguments{
+\item{dt}{input data.table}
+
+\item{analysis_period}{period to analyse}
+}
 \description{
 Function is very similar to [get_active_profiles_daily()], but it also takes into account changes of minimum investment levels
 }

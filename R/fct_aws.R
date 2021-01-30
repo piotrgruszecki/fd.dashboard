@@ -252,6 +252,8 @@ get_active_profiles_daily <-
 #' @description Function is very similar to [get_active_profiles_daily()], but it also takes into account changes of minimum investment levels
 #' @import data.table
 #' @importFrom lubridate %within% int_start int_end
+#' @param dt input data.table
+#' @param analysis_period period to analyse
 #' @export
 get_profiles_investment_daily <- function(dt, analysis_period){
 

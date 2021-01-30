@@ -21,7 +21,7 @@ mod_report_3_ui <- function(id){
 
       column(width = 4, shinydashboard::box(
         width = 12, title = "Data Subset", collapsible = TRUE, footer = "This box can be closed by minus sign above", status = "primary",
-        shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = (lubridate::today() - months(1)), minDate = "2020-10-01", maxDate = lubridate::today()),
+        shinyWidgets::airMonthpickerInput(inputId = ns("year_month_selected"), label = "Month to analyse:", value = lubridate::today(), minDate = "2020-10-01", maxDate = lubridate::today()),
         shiny::selectInput(inputId = ns("countries_selected"), label = "Websites (sorted by volume in given month):", choices = c("US", "GB"), selected = "US", multiple = TRUE),
         shiny::sliderInput(inputId = ns("aggregation_level"), label = "Countries (Geo's) Aggregation level", 1, 5, 3, step = 1, ticks = T)
         )
@@ -41,11 +41,11 @@ mod_report_3_ui <- function(id){
           fluidRow(shinydashboard::box(width = 8, plotOutput(outputId = ns("plot_02"))), shinydashboard::box(width = 4, DT::DTOutput(outputId = ns("table_1")))),
           fluidRow(shinydashboard::box(width = 12,DT::DTOutput(outputId = ns("table_2"))))
         ), #-- tabPanel #1
-        shiny::tabPanel(title = "Countries table",
-          fluidRow(DT::DTOutput(outputId = ns("dt_subset")))
-        ), #-- tabPanel #2
-        shiny::tabPanel(title = "Countries, aggregated",
-          fluidPage(DT::DTOutput(outputId = ns("dt_subset_aggregated")))),
+        # shiny::tabPanel(title = "Countries table",
+        #   fluidRow(DT::DTOutput(outputId = ns("dt_subset")))
+        # ), #-- tabPanel #2
+        # shiny::tabPanel(title = "Countries, aggregated",
+        #   fluidPage(DT::DTOutput(outputId = ns("dt_subset_aggregated")))),
         # debug printouts
         shiny::tabPanel("Debug",
           fluidPage(

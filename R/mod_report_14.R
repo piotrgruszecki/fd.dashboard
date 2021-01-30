@@ -45,7 +45,11 @@ mod_report_14_ui <- function(id){
               fluidRow(shinydashboard::box(width = 12, title = "Investment level Snapshot (B)",  plotOutput(outputId = ns("plot_01")))),
 
               fluidRow(shinydashboard::box(width = 12, title = "Tabular presentation.", DT::DTOutput(outputId = ns("table_01"))))
-         ) #-- tabPanel
+         ), #-- tabPanel
+
+         shiny::tabPanel(title = "& Leads",
+                         h2("Under development")
+                         )
       ) #-- tabBox
     ), #-- fluidRow
 

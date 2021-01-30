@@ -1,0 +1,229 @@
+---
+title: "FD Report 9"
+author: "Piotr G"
+date: '`r Sys.Date()`'
+papersize: a4
+output:
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+    number_sections: yes
+    toc: no
+  html_document:
+    toc: yes
+  tufte::tufte_html: default
+  pdf_document:
+    toc: no
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+fontsize: 8pt
+link-citations: yes
+#ctex: yes
+rtex: yes
+subtitle: Initial analysis
+#bibliography: skeleton.bib
+---
+
+```{r setup, echo=FALSE}
+#-- 0.0 markdown options
+knitr::opts_chunk$set(
+    echo = FALSE,
+    eval = TRUE,
+    message = FALSE,
+    warning = FALSE,
+    dpi = 300,
+    tinytex.verbose = TRUE,
+    tidy = FALSE, 
+#    cashe.extra = packageVersion('tufte'),
+    fig.align = "center"
+    )
+```
+
+
+```{r libraries}
+#-- 1.0 libraries ----
+# library(magrittr)
+# library(tidyverse)
+library(data.table)
+# library(tidyquant)
+# library(RMySQL)
+library(lubridate)
+# library(ISOweek)
+# library(MMWRweek)
+
+#-- 1.2 Libraries own ----
+library(fd.dashboard)
+
+#-- 1.3 libraries graphical ----
+library(ggpubr)
+library(knitr)
+library(ggExtra)
+library(viridis)
+library(tufte)
+
+
+```
+
+```{r configuration}
+
+#-- 1.3. Settings ----
+Sys.setenv(R_CONFIG_ACTIVE = "default") # use "default" for for production, "development" for prototyping
+config <- config::get(file = "../inst/golem-config.yml", use_parent = TRUE)
+
+```
+
+# Purpose
+
+`r newthought('The goal')` of this document is to prepare functions for the report **14 Investment Level**.
+
+
+```{r data pull}
+
+lead_raw_dt <- fd.dashboard::get_clean_leads()
+lead_raw_dt %>% str()
+
+lead_mult_3_id <- lead_raw_dt[, .N, .(lead_status, lead_id)][, .N, .(lead_id)][N > 1][order(-N)][N == 3, lead_id]
+lead_raw_dt[lead_id %in% lead_mult_3_id[1], ]
+
+setkey(lead_raw_dt, tech_date_start)
+lead_latest_entry_dt <- lead_raw_dt[, .SD[.N], .(lead_id)]
+lead_latest_entry_dt[lead_id %in% lead_mult_3_id[1], ]
+
+period <- "2021-01-01" %--% (today() - lubridate::days(1))
+period <- "2021-01-01" %--% today()
+
+lead_latest_entry_dt[Date %within% period, .N, .(lead_status, website_iso2c)][, dcast.data.table(.SD, lead_status ~ website_iso2c)]
+lead_latest_entry_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(lead_status, website_iso2c)][order(-N)][, lapply(.SD, sum), .SDcols = is.numeric]
+lead_latest_entry_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(Date)][order(Date)] %>%
+    ggplot(aes(Date, N)) +
+    geom_line()
+
+
+lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(website_iso2c, lead_status)][order(-N)]
+lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(Date)][order(Date)] %>%
+    ggplot(aes(Date, N)) +
+    geom_line()
+
+lead_raw_dt[Date %within% period, ][Date == max(Date) & website_iso2c %in% c("US"), ]
+
+period <- "2021-01-01" %--% (today() - lubridate::days(1))
+lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(website_iso2c, lead_status)][order(-N)]
+lead_us_mult_id_dt <- lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .N, .(lead_status, lead_id)][, .N, .(lead_id)][N > 1][order(-N)]
+
+setkey(lead_raw_dt, lead_id)
+setkey(lead_us_mult_id_dt, lead_id)
+
+lead_id_mult_sent_dt <- lead_raw_dt[lead_us_mult_id_dt][lead_status == "Sent"][, .(lead_id)]
+setkey(lead_id_mult_sent_dt, lead_id)
+
+x1_dt <- lead_raw_dt[lead_id_mult_sent_dt][, .(lead_id, publish_date, lead_status, tech_date_start)]
+setkey(x1_dt, tech_date_start)
+
+x1_dt[, .(lead_status[3]), .(lead_id)][!is.na(V1)]
+
+x1_dt[, `:=` (n = 1)]
+x1_dt[, `:=` (step = cumsum(n)), .(lead_id)]
+x1_dt[, .N, .(step)]
+x1_dt[step == 18, ]
+
+
+x1_dt$step %<>% as.factor()
+plot_01 <- x1_dt[step %in% (c(1:2)), .(lead_id, lead_status, step)] %>%
+    ggplot(aes(x = step, stratum = lead_status, alluvium = lead_id, fill = lead_status)) +
+    geom_flow(stat = "alluvium") +
+    geom_stratum() +
+    scale_fill_viridis_d(option = "A") +
+    geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "lightgray") +
+    theme_bw() +
+    labs(subtitle = stringr::str_glue("leads with more than one status"), x = "", y = "") +
+    theme(legend.position = "right")
+
+
+
+ 
+#-- all
+x2_dt <- lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .(lead_id, lead_status, tech_date_start)]
+x2_dt[, `:=` (n = 1)]
+x2_dt[, `:=` (step = cumsum(n)), .(lead_id)]
+x2_dt$step %<>% as.factor()
+x2_dt <- x2_dt[step %in% (c(1:2)), ]
+
+x2_dt <- x2_dt[, .(lead_id, lead_status, step, n)][, `:=` (lead_status = as.factor(lead_status) %>% fct_lump_prop(prop = 0.01))]
+x2_dt %>% str()
+x2_dt[, .N, .(lead_status)]
+
+
+plot_02 <- x2_dt[step %in% (c(1:2)), .(lead_id, lead_status, step)] %>%
+    ggplot(aes(x = step, stratum = lead_status, alluvium = lead_id, fill = lead_status)) +
+    geom_flow(stat = "alluvium") +
+    geom_stratum() +
+    scale_fill_viridis_d(option = "B") +
+    geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "lightgray") +
+    theme_bw() +
+    labs(title = "Status changes, January, US website", subtitle = stringr::str_glue("all leads"), x = "", y = "") +
+    theme(legend.position = "right") +
+    guides(fill = guide_legend(ncol = 1))
+
+
+plot_03 <- ggpubr::ggarrange(plot_02, plot_01, nrow = 2, ncol = 1, common.legend = T, legend = "right") 
+ggsave(filename = "Leads status.png", plot = plot_03, width = 12)
+
+
+```
+
+```{r sunburst}
+
+library(sunburstR)
+sequences <- read.csv(
+    system.file("examples/visit-sequences.csv",package="sunburstR")
+    ,header = FALSE
+    ,stringsAsFactors = FALSE
+  )[1:200,]
+
+# create a d2b sunburst
+  sund2b(sequences)
+
+  # show labels
+  sund2b(sequences, showLabels = TRUE)
+
+ 
+#--
+x4_dt <- x2_dt[step %in% (c(1:2)), .(lead_id, lead_status, step)][, dcast.data.table(.SD, lead_id ~ step, value.var = "lead_status")][!is.na(`2`)][, `:=` (seq = paste(`1`, `2`, sep = "-")), .(lead_id)][]
+
+x5_dt <- x4_dt[, .N, .(seq)]
+
+sund2b(x5_dt)
+
+#--
+x6_dt <- lead_raw_dt[Date %within% period & website_iso2c %in% c("US"), .(lead_id, lead_status, tech_date_start)]
+x6_dt[, `:=` (n = 1)]
+x6_dt[, `:=` (step = cumsum(n)), .(lead_id)]
+x6_dt$step %<>% as.factor()
+x6_dt <- x6_dt[step %in% (c(1:2)), ]
+
+x7_dt <- x6_dt[, dcast.data.table(.SD, lead_id ~ step, value.var = "lead_status")][, `:=` (seq = fcase(is.na(`2`), `1`, 
+                                                                                                       !is.na(`2`), paste(`1`, `2`, sep = "-"))), .(lead_id)]
+    
+
+x7_dt[, .N, .(seq)] %>% sund2b( )
+
+?sund2bTooltip()
+
+lead_2_id <- x6_dt[, .N, .(lead_id)][N == 2]
+setkey(lead_2_id, lead_id)
+setkey(x6_dt, lead_id)
+
+x7_dt <- x6_dt[lead_2_id]
+x7_dt[, seq := lapply(.SD,  paste), .SDcols = c("lead_status"), .(lead_id)][]
+x7_dt[lead_id == "00000176-bc4a-d410-affe-bcdb7fc30000", (paste(lead_status, sep = "-"))]
+x7_dt[lead_id == "00000176-bc4a-d410-affe-bcdb7fc30000", (reduce(.x = lead_status, .f = paste, sep = "-"))]
+x7_dt[lead_id == "00000176-bc4a-d410-affe-bcdb7fc30000", .(seq = reduce(.x = lead_status, .f = paste, sep = "-"))]
+
+x6_dt[, .(seq = reduce(.x = lead_status, .f = paste, sep = "-")), .(lead_id)][, .N, .(seq)] %>%
+    sund2b()
+
+
+```

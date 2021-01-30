@@ -523,6 +523,7 @@ prof_inv_dt[date == max(date) & !is.na(min_investment_currency) & min_investment
 
 #-- trim leads
 analysis_period <- "2020-12-01" %--% today()
+
 lead_dt <- lead_raw_dt[Date %within% analysis_period]
 
 
