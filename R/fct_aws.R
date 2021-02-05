@@ -208,6 +208,8 @@ get_default_analysis_period <-
 #' @import data.table
 #' @importFrom lubridate %within% int_start int_end
 #' @export
+#' @param dt input data.table
+#' @param analysis_period period to analyse
 get_active_profiles_daily <-
     function(dt, analysis_period){
 
@@ -297,4 +299,42 @@ get_profiles_investment_daily <- function(dt, analysis_period){
 
     return(b7)
 }
+
+#' Identify credited leads
+#' @description Function checks leads statuses, picking Sent and Credited
+#' @details Function logic has following steps
+#' - reduce changes to only these, having changed status, "flatten" all other changes, when status is not changed
+#' - get lead_id, which were credited, sometimes a couple of days later, after initial send
+#' - subset lead_id to these, which have been sent
+#' - perform two joins of these datasets - leads_sent and credited
+#' - as a result, we have a dataset with the earliest "sent" status, and also a flag credited = y/n (crediting occurs a few days after lead is sent)
+#' @import data.table
+#' @param dt input data.table
+#' @export
+mark_credited_leads <- function(dt){
+
+    # Fri Feb  5 13:10:37 2021 ------------------------------
+    #-- 1. reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+    setkey(dt, tech_date_start, lead_id)
+    dt[, `:=` (status_prev = shift(lead_status, type = "lag", fill = NA)), .(lead_id)]
+    x3_dt <- dt[lead_status != status_prev | is.na(status_prev), ]
+
+    #-- 2. get lead_id which were credited
+    factor_cols <- c("lead_status", "profile_id", "lead_id", "client_id")
+    dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+    leads_credited_dt <- dt[lead_status == "Credited Lead", .N, .(lead_id)][, .(lead_id)]
+
+    #-- 3. get earliest "Sent" status per each lead_id
+    x4_sent_dt <- x3_dt[lead_status == "Sent", ]
+
+    #-- 4. mark, if the lead have been credited with a flag
+    setkey(x4_sent_dt, lead_id)
+    setkey(leads_credited_dt, lead_id)
+    x5_dt <- rbindlist(list(x4_sent_dt[!leads_credited_dt][, `:=` (credited = FALSE)],
+                            x4_sent_dt[ leads_credited_dt, nomatch = 0][, `:=` (credited = TRUE)]))
+
+    return(x5_dt)
+}
+
+
 

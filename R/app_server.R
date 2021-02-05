@@ -19,7 +19,9 @@ app_server <- function( input, output, session ) {
     #output$con_prt <- shiny::renderText(glue::glue("DB Connection type: {con %>% typeof()}"))
 
     # pull data, get number of rows
-    leads_dt <- get_clean_leads()
+    leads_dt <- get_clean_leads() %>%
+      mark_credited_leads()
+
     leads_n_rows <- leads_dt[, .N]
     output$leads_n_rows <- shiny::renderText(glue::glue("Leads DT, .N: {leads_n_rows}"))
 

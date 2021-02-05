@@ -43,7 +43,7 @@ knitr::opts_chunk$set(
 
 ```{r libraries}
 #-- 1.0 libraries ----
-# library(magrittr)
+library(magrittr)
 # library(tidyverse)
 library(data.table)
 # library(tidyquant)
@@ -225,5 +225,126 @@ x7_dt[lead_id == "00000176-bc4a-d410-affe-bcdb7fc30000", .(seq = reduce(.x = lea
 x6_dt[, .(seq = reduce(.x = lead_status, .f = paste, sep = "-")), .(lead_id)][, .N, .(seq)] %>%
     sund2b()
 
+
+```
+
+```{r lead status}
+# Tue Feb  2 17:06:57 2021 ------------------------------
+lead_raw_dt[month == "Jan" & year == 2021, .N, .(lead_status, lead_source)][, dcast.data.table(.SD, lead_status ~ lead_source)]
+lead_raw_dt[month == "Jan" & year == 2021, .N, .(lead_status, credited_lead)][, dcast.data.table(.SD, lead_status ~ credited_lead)][!is.na(true)]
+
+#-- charting credited leads
+dates_interval <- (today() - months(1)) %--% today()
+leads_dt <- lead_raw_dt[Date %within% dates_interval, ]
+
+#-- which lead_id have status Credited
+factor_cols <- c("lead_status", "profile_id", "lead_id", "client_id")
+leads_dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+leads_dt[, .SD, .SDcols = (colnames(leads_dt) %>% str_subset(pattern = "_id"))] %>% str()
+leads_credited_dt <- leads_dt[lead_status == "Credited Lead", .N, .(lead_id)][, .(lead_id)]
+
+#-- subset to leads, which were later on credited
+setkey(leads_dt, lead_id)
+setkey(leads_credited_dt, lead_id)
+leads_sent_credited_dt <- leads_dt[leads_credited_dt][lead_status == "Credited Lead"]
+
+leads_sent_credited_dt <- leads_sent_credited_dt[, `:=` (n = 1), ][!is.na(website_iso2c), ]
+leads_sent_credited_dt[, `:=` (website_iso2c = fct_reorder(website_iso2c, .x = n, .fun = sum, na.rm = T) %>% fct_rev())]
+
+month_selected <- "Jan"
+leads_sent_credited_dt[, .N, .(Date, web = website_iso2c)] %>%
+  ggplot(aes(Date, N, color = web, fill = web)) +
+  geom_col() +
+  theme_bw() +
+  scale_color_viridis_d(option = "A", alpha = 1) +
+  scale_fill_viridis_d(option = "A", alpha = .6) +
+  labs(title = glue::glue("Number of Credited Leads in {month_selected}."), y = "", x = "")
+
+
+```
+
+```{r lead sources}
+
+
+leads_dt[, .N, .(lead_source, lead_status)]
+
+leads_source_dt <- leads_dt[lead_status == "Sent", .N, .(Date, lead_source)][, `:=` (lead_source = as.factor(lead_source) %>% fct_reorder(.x = N, .fun = sum) %>% fct_rev())][] 
+
+leads_source_dt$lead_source %>% levels()
+
+dates_range <- leads_source_dt[, range(Date)]
+dates_range[2] %<>% + days(20)
+
+lead_source_labels_dt <- leads_source_dt[Date < today() & lead_source != "null", {max_date = max(Date); .(N = .SD[Date == max_date, N], max_date)}, .(lead_source)][order(-N)]
+
+plot_01 <- leads_source_dt[Date < today() & lead_source != "null"] %>%
+  ggplot(aes(Date, N, color = lead_source)) +
+  geom_line() + 
+  geom_point(data = lead_source_labels_dt, mapping = aes(max_date, N, color = lead_source)) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(title = glue::glue("Number of Leads by Source in {month_selected}."), y = "", x = "")
+
+
+plot_02 <- plot_01 +
+  coord_cartesian(xlim = c(dates_range[1], dates_range[2])) +
+  ggrepel::geom_text_repel(data = lead_source_labels_dt, mapping = aes(max_date, N, label = lead_source), 
+                           nudge_x = 3, direction = "y", force = .5, segment.size = 0.2, hjust = 0, na.rm = T,
+                           label.padding = 100, point.padding = 0.5)
+
+#-- now facet by website
+leads_source_web_dt <- leads_dt[lead_status == "Sent", .N, .(Date, lead_source, website_iso2c)
+                                ][, `:=` (lead_source = as.factor(lead_source) %>% fct_reorder(.x = N, .fun = sum) %>% fct_rev(),
+                                          website_iso2c = fct_reorder(.f = website_iso2c, .x = N, .fun = sum) %>% fct_rev())][] 
+
+plot_11 <- leads_source_web_dt[Date < today() & lead_source != "null" & website_iso2c %in% c("US", "GB")] %>%
+  ggplot(aes(Date, N, color = lead_source, fill = lead_source)) +
+  geom_area(alpha = 0.5) + 
+  #geom_point(data = lead_source_labels_dt, mapping = aes(max_date, N, color = lead_source)) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(title = glue::glue("Number of Leads by Source in {month_selected}."), y = "", x = "") +
+  facet_wrap(facets = "website_iso2c", scales = "free_y")
+
+plot_11
+
+```
+
+```{r leads sent function}
+
+lead_raw_dt <- fd.dashboard::get_clean_leads()
+
+#-- charting credited leads
+dates_interval <- (today() - months(1)) %--% today()
+leads_dt <- lead_raw_dt[Date %within% dates_interval, ]
+dt <- leads_dt
+
+#-- reduce changes to only those, having changed status, "flatten" all other changes, when status is not changed
+setkey(dt, tech_date_start, lead_id)
+dt[, `:=` (status_prev = shift(lead_status, type = "lag", fill = NA)), .(lead_id)]
+#x3_dt <- dt[, .(lead_id, lead_status, status_prev, tech_date_start)][lead_status != status_prev | is.na(status_prev),]
+x3_dt <- dt[lead_status != status_prev | is.na(status_prev), ]
+
+#-- logic
+#-- 1. get lead_id which were credited
+factor_cols <- c("lead_status", "profile_id", "lead_id", "client_id")
+dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+dt[, .SD, .SDcols = (colnames(dt) %>% str_subset(pattern = "_id"))] %>% str()
+leads_credited_dt <- dt[lead_status == "Credited Lead", .N, .(lead_id)][, .(lead_id)]
+
+#-- 2. get earliest "Sent" status per each lead_id
+x4_sent_dt <- x3_dt[lead_status == "Sent", ]
+
+#-- 3. mark, if the lead have been credited with a flag
+setkey(x4_sent_dt, lead_id)
+setkey(leads_credited_dt, lead_id)
+
+x5_dt <- rbindlist(list(x4_sent_dt[!leads_credited_dt][, `:=` (credited = FALSE)],
+                        x4_sent_dt[ leads_credited_dt, nomatch = 0][, `:=` (credited = TRUE)]))
+
+x5_dt[, .N, .(lead_status, credited_lead, credited)]
+
+# Fri Feb  5 13:10:16 2021 ------------------------------
+# moved to fct_aws
 
 ```

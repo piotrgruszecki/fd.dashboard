@@ -6,6 +6,11 @@
 \usage{
 get_active_profiles_daily(dt, analysis_period)
 }
+\arguments{
+\item{dt}{input data.table}
+
+\item{analysis_period}{period to analyse}
+}
 \description{
 Generate long table, with profile_id per each day within the period
 }

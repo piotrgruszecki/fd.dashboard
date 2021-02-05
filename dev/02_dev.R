@@ -27,8 +27,12 @@ usethis::use_package( "DT" )
 usethis::use_package( "scales" )
 usethis::use_package( "shinyWidgets" )
 usethis::use_package( "shinydashboard" )
+usethis::use_package( "shinipsum" )
+usethis::use_package( "purrr" )
 usethis::use_package( "stringr" )
 usethis::use_package( "ggpubr" )
+usethis::use_package( "googleAnalyticsR" )
+usethis::use_package( "googleAuthR" )
 
 
 
