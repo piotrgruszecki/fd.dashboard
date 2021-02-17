@@ -81,7 +81,7 @@ mod_report_9_server <- function(id, aws_buffer){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
-    dt <- aws_buffer$leads
+    dt <- aws_buffer$leads_sent
     charting_period <- aws_buffer$leads_dates_range[1] %--% aws_buffer$leads_dates_range[2]
 
     #-- 0.4.3 layout definitions

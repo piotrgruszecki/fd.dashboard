@@ -336,5 +336,21 @@ mark_credited_leads <- function(dt){
     return(x5_dt)
 }
 
+#' Return only credited leads
+#' @description return only credited leads, the function is a next step after [mark_credited_leads()]
+#' @import data.table
+#' @import magrittr
+# @importFrom forcats fct_reorder fct_rev
+#' @param dt input data.table, after [mark_credited_leads()]
+#'
+#' @export
+get_credited_leads <- function(dt){
+
+    dt <- dt[credited == TRUE,][, `:=` (n = 1), ][!is.na(website_iso2c), ][, .(Date, Date_y, website_iso2c, Country, credited, n)]
+    dt$website_iso2c %<>% as.character()
+    dt[, `:=` (website_iso2c = as.factor(website_iso2c) %>% fct_reorder(.x = n, .fun = sum, na.rm = T) %>% fct_rev())]
+
+    return(dt)
+}
 
 

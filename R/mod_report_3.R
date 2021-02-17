@@ -40,7 +40,12 @@ mod_report_3_ui <- function(id){
         shiny::tabPanel(title = "Geo analysis",
           fluidRow(shinydashboard::box(width = 8, plotOutput(outputId = ns("plot_02"))), shinydashboard::box(width = 4, DT::DTOutput(outputId = ns("table_1")))),
           fluidRow(shinydashboard::box(width = 12,DT::DTOutput(outputId = ns("table_2"))))
-        ), #-- tabPanel #1
+        ),
+        shiny::tabPanel(title = "Credited",
+          fluidRow(shinydashboard::box(width = 6, plotOutput(outputId = ns("plot_03"))),
+                   shinydashboard::box(width = 6, DT::DTOutput(outputId = ns("table_3"))))
+        ),
+        #-- tabPanel #1
         # shiny::tabPanel(title = "Countries table",
         #   fluidRow(DT::DTOutput(outputId = ns("dt_subset")))
         # ), #-- tabPanel #2
@@ -56,7 +61,8 @@ mod_report_3_ui <- function(id){
               shiny::verbatimTextOutput(outputId = ns("dates_selected2")),
               shiny::verbatimTextOutput(outputId = ns("websites_sorted")),
               shiny::verbatimTextOutput(outputId = ns("host")),
-              shiny::verbatimTextOutput(outputId = ns("plot.color"))
+              shiny::verbatimTextOutput(outputId = ns("plot.color")),
+              DT::DTOutput(outputId = ns("dt_credited_leads"))
             )
           )
         )
@@ -112,7 +118,7 @@ mod_report_3_server <- function(id, aws_buffer){
 
     #-- 2.1 get data subset, according to input filters
     #-- 2.1.1 data subset
-    dt <- aws_buffer$leads
+    dt <- aws_buffer$leads_sent
     charting_period <- aws_buffer$leads_dates_range[1] %--% aws_buffer$leads_dates_range[2]
 
     dt_subset <- reactive({
@@ -150,6 +156,18 @@ mod_report_3_server <- function(id, aws_buffer){
       return(dt)
     })
 
+    #-- 2.1.3 credited leads, trim to selected period
+    dt_credited_leads <- reactive({
+      month_selected <- input$year_month_selected %>% lubridate::month(label = TRUE, abbr = TRUE)
+      year_selected  <- input$year_month_selected %>% lubridate::year()
+
+      dt <- aws_buffer$leads_credited[lubridate::month(Date, label = T, abbr = T) == month_selected & lubridate::year(Date) == year_selected, ]
+      dt <- dt[, `:=` (website_iso2c = fct_reorder(website_iso2c, .x = n, .fun = sum, na.rm = T) %>% fct_rev())]
+
+      return(dt)
+    })
+    output$dt_credited_leads <- DT::renderDT({dt_credited_leads()})
+
     #-- 2.2 set of charts charts
     #-- 2.2.1 overview plot and possibly others, where we only need data subset
     plots_basic_list <- function(){
@@ -185,8 +203,27 @@ mod_report_3_server <- function(id, aws_buffer){
     output$plot_01 <- renderPlot({plots_basic_list()["plot_01"]})
     output$plot_02 <- renderPlot({plots_basic_list()["plot_02"]})
 
+    #-- plot credited leads
+    plot_credited <- function(){
+
+      month_selected <- input$year_month_selected %>% lubridate::month(label = TRUE, abbr = TRUE)
+
+      plot_03 <- dt_credited_leads()[, .N, .(Date, web = website_iso2c)] %>%
+        ggplot(aes(Date, N, color = web, fill = web)) +
+        geom_col() +
+        theme_bw() +
+        scale_color_viridis_d(option = "A", alpha = 1) +
+        scale_fill_viridis_d(option = "A", alpha = .6) +
+        labs(title = glue::glue("Number of Credited Leads in {month_selected}."), y = "", x = "")
+
+      plots_credited_list <- list(plot_03 = plot_03)
+      return(plots_credited_list)
+    }
+    output$plot_03 <- renderPlot({plot_credited()["plot_03"]})
+
 
     #-- 2.3 tables
+    #-- 2.3.1 basic
     tables_numeric <- function(){
 
       tab1 <- dt_subset_aggregated_countries()[, .(leads = sum(leads)), .(Country)][order(-leads)]
@@ -197,6 +234,17 @@ mod_report_3_server <- function(id, aws_buffer){
     }
     output$table_1 <- DT::renderDT({tables_numeric()$tab1})
     output$table_2 <- DT::renderDT({tables_numeric()$tab2})
+
+    #-- 2.3.2 credited leads
+    tables_credited <- function(){
+
+      tab3 <- dt_credited_leads()[, .(credited_leads = sum(n)), .(web = website_iso2c)][order(-credited_leads)]
+
+      tables_credited <- list(tab3 = tab3)
+      return(tables_credited)
+    }
+    output$table_3 <- DT::renderDT({tables_credited()$tab3})
+
 
     #-- lorem ipsum below
     # output$plot_overview <- renderPlot({shinipsum::random_ggplot(type = "density")})
