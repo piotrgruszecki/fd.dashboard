@@ -134,7 +134,8 @@ read_clean_profiles <-
     function() {
 
         #-- only those, which are needed for dashboard reports
-        col_subset_names <- c("profile", "client_id", "profile_id", "sales_rep", "website_iso2c", "contract_end_date", "status",
+        col_subset_names <- c("profile", "profile_id", "client","client_id",
+                              "sales_rep", "website_iso2c", "contract_end_date", "status",
                               "ppl_price", "ppl_price_currency",
                               "min_investment", "min_investment_currency",
                               "tech_date_start", "tech_date_end", "tech_prev_id", "tech_next_id")
