@@ -138,6 +138,7 @@ read_clean_profiles <-
                               "sales_rep", "website_iso2c", "contract_end_date", "status",
                               "ppl_price", "ppl_price_currency",
                               "min_investment", "min_investment_currency",
+                              "publish_date",
                               "tech_date_start", "tech_date_end", "tech_prev_id", "tech_next_id")
 
         table_name <- config$table_profiles_clean
@@ -172,7 +173,7 @@ get_clean_profiles <-
         dt[, (cols.character) := lapply(.SD, `Encoding<-`, "latin1"), .SDcols = cols.character]
 
         #-- adjust column names, types so the old script can work without changes
-        date_cols <- c("contract_end_date", "tech_date_start", "tech_date_end")
+        date_cols <- c("contract_end_date", "tech_date_start", "tech_date_end", "publish_date")
         dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
 
         factor_cols <- c("website_iso2c", "status", "ppl_price_currency", "min_investment_currency")
