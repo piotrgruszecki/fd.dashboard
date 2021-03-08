@@ -404,10 +404,10 @@ get_clean_leads_profiles <-
         date_cols <- c("date_join")
         dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
 
-        factor_cols <- c("profile_id", "client_id", "status", "website_iso2c", "lead_id", "Country", "state_city", "lead_source", "currency")
+        factor_cols <- c("profile_id", "client_id", "status", "website_iso2c", "lead_id", "Country", "state_city", "lead_source", "currency", "ppl_price_currency")
         dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
 
-        numeric_cols <- c("ppl_price", "ppl_price_currency", "available_cash")
+        numeric_cols <- c("ppl_price", "available_cash")
         dt[, (numeric_cols) := lapply(.SD, as.numeric), .SDcols = numeric_cols]
 
         return(dt)
