@@ -363,7 +363,8 @@ read_leads_profiles_clean <- function(){
 
     #-- only those, which are needed for dashboard reports
     col_subset_names <- c("profile", "profile_id", "client","client_id",
-                          "ppl_price", "status", "website_iso2c",
+                          "ppl_price", "ppl_price_currency",
+                          "status", "website_iso2c",
                           "date_join", "lead_id",
                           "Country", "state_city",
                           "lead_source", "available_cash", "currency")
@@ -406,7 +407,7 @@ get_clean_leads_profiles <-
         factor_cols <- c("profile_id", "client_id", "status", "website_iso2c", "lead_id", "Country", "state_city", "lead_source", "currency")
         dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
 
-        numeric_cols <- c("ppl_price", "available_cash")
+        numeric_cols <- c("ppl_price", "ppl_price", "available_cash")
         dt[, (numeric_cols) := lapply(.SD, as.numeric), .SDcols = numeric_cols]
 
         return(dt)
