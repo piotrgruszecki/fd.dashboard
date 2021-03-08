@@ -16,6 +16,8 @@ default:
   table_profiles_clean: bs_profiles_clean_tmp
   table_profiles_log: bs_profiles_log
   table_geo_timezones: geo_tz
+  table_leads_profiles: bs_leads_profiles
+  table_leads_profiles_neg: bs_leads_profiles_neg
 production:
   app_prod: yes
 dev:
