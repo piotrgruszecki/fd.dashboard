@@ -403,8 +403,6 @@ get_clean_leads_profiles <-
         date_cols <- c("date_join")
         dt[, (date_cols) := lapply(.SD, lubridate::date), .SDcols = date_cols]
 
-        # Sun Mar  7 13:24:33 2021 ------------------------------
-        # dokończyć funkcję !!!
         factor_cols <- c("profile_id", "client_id", "status", "website_iso2c", "lead_id", "Country", "state_city", "lead_source", "currency")
         dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
 
