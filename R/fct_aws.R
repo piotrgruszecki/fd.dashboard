@@ -413,3 +413,81 @@ get_clean_leads_profiles <-
         return(dt)
     }
 
+#' Get lookup_dt table
+#' @description Function to
+#' - read lookup_dt table from aws
+#' - adjust Encoding to latin1
+#' - change column names
+#' @import data.table
+#' @import magrittr
+#' @export
+get_lookup_table <- function(){
+
+    dt <- fd.dashboard::read_table_from_aws(table_name = config$table_lookup)
+    cols.character <- dt[ , .SD, .SDcols = is.character] %>% colnames()
+    dt[, (cols.character) := lapply(.SD, `Encoding<-`, "latin1"), .SDcols = cols.character]
+
+    data.table::setnames(dt,
+             c("Label", "Product.Title", "Client", "country_iso2c"),
+             c("profile", "Product.Title", "client", "website_iso2c"))
+
+    factor_cols <- c("n", "website_iso2c")
+    dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+
+    return(dt)
+}
+
+#' Read Primary Industry table
+#' @description Function to read primary_dt
+#' @importFrom glue glue_sql
+#' @importFrom RMySQL dbSendQuery dbFetch dbDisconnect
+#' @export
+read_primary_industry_table <- function(){
+
+    #-- only those, which are needed for dashboard reports
+    col_subset_names <- c("n",
+                          "primary_ind_v1", "primary_ind_v2", "primary_ind_v3",
+                          "country_iso2c")
+
+    table_name <- config$table_prime_industry
+
+    con <- get_aws_connection()
+    query_txt <- glue::glue_sql(
+        "SELECT {`col_subset_names`*} FROM {`table_name`} ",
+        .con = con)
+
+    query <- RMySQL::dbSendQuery(con, query_txt)
+    res <- RMySQL::dbFetch(query, -1)
+    RMySQL::dbDisconnect(con)
+
+    setDT(res)
+    return(res)
+}
+
+#' Get Primary Industry table
+#' @description Function performs
+#' - reads table from aws, using [read_primary_industry_table()] function
+#' - adjusts Encoding to latin1
+#' - formats column types
+#' @import data.table
+#' @import magrittr
+#' @export
+get_primary_industry_table <- function(){
+
+    dt <- read_primary_industry_table()
+
+    #-- set encoding, fixing special characters
+    cols.character <- dt[ , .SD, .SDcols = is.character] %>% colnames()
+    dt[, (cols.character) := lapply(.SD, `Encoding<-`, "latin1"), .SDcols = cols.character]
+
+    data.table::setnames(dt, c("country_iso2c"), c("website_iso2c"))
+
+    factor_cols <- c("n", "website_iso2c")
+    dt[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+
+    return(dt)
+}
+
+
+
+

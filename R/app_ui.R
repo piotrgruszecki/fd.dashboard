@@ -22,6 +22,7 @@ app_ui <- function(request) {
           shinydashboard::menuItem("9: Daily Lead Flow", tabName = "daily_lead_flow", icon = icon("globe-americas")),
           shinydashboard::menuItem("14: Minimum Investment", tabName = "minimum_investment_level", icon = icon("globe-americas")),
           shinydashboard::menuItem("15: Daily Active Profiles", tabName = "daily_active_profiles", icon = icon("globe-americas")),
+          shinydashboard::menuItem("21: Industries & Categories", tabName = "industries_categories", icon = icon("globe-americas")),
           shinydashboard::menuItem("N: Other Report",    tabName = "widgets",         icon = icon("dashboard"))
         )
       ),
@@ -33,6 +34,7 @@ app_ui <- function(request) {
           shinydashboard::tabItem(tabName = "daily_lead_flow",          mod_report_9_ui("report_9_ui_1")),
           shinydashboard::tabItem(tabName = "minimum_investment_level", mod_report_14_ui("report_14_ui_1")),
           shinydashboard::tabItem(tabName = "daily_active_profiles",    mod_report_15_ui("report_15_ui_1")),
+          shinydashboard::tabItem(tabName = "industries_categories",    mod_report_21_ui("report_21_ui_1")),
           shinydashboard::tabItem(tabName = "widgets", h2("Widgets tab content"))
         )
       )

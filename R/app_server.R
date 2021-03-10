@@ -42,6 +42,7 @@ app_server <- function( input, output, session ) {
       leads_dates_range = 0,
       leads_sent = 0,
       leads_credited = 0,
+      table_for_industries = 0,
       #leads_marked_credited = 0,
       pull_leads    = function(dates_range) {2 + 2},
       pull_profiles = function(dates_range) {3 + 3}
@@ -62,13 +63,18 @@ app_server <- function( input, output, session ) {
     aws_buffer$leads_sent <- mark_credited_leads(aws_buffer$leads)
 
     #-- separate table with credited leads
-    aws_buffer$leads_credited <- get_credited_leads(aws_buffer$leads_sent)
+    #aws_buffer$leads_credited <- get_credited_leads(aws_buffer$leads_sent)
+
+    #--
+    aws_buffer$table_for_industries <- fd.dashboard::produce_join_table_for_industries()
+
 
     #-- modules below
     mod_report_3_server("report_3_ui_1", aws_buffer)
     mod_report_9_server("report_9_ui_1", aws_buffer)
     mod_report_14_server("report_14_ui_1", aws_buffer)
     mod_report_15_server("report_15_ui_1", aws_buffer)
+    mod_report_21_server("report_21_ui_1", aws_buffer)
 
 
 

@@ -33,7 +33,7 @@ usethis::use_package( "stringr" )
 usethis::use_package( "ggpubr" )
 usethis::use_package( "googleAnalyticsR" )
 usethis::use_package( "googleAuthR" )
-
+usethis::use_package( "sunburstR" )
 
 
 usethis::use_tidy_eval()
@@ -46,11 +46,14 @@ golem::add_module( name = "report_3" ) # Name of the module
 golem::add_module( name = "report_9" ) # Name of the module
 golem::add_module( name = "report_15" ) # Name of the module
 golem::add_module( name = "report_14" ) # Name of the module
+golem::add_module( name = "report_21" ) # Name of the module
+
 
 ## Add helper functions ----
 ## Creates ftc_* and utils_*
 golem::add_fct( "helpers" )
 golem::add_fct( "aws" )
+golem::add_fct( "report_21" )
 golem::add_utils( "nested_modules" )
 
 ## External resources

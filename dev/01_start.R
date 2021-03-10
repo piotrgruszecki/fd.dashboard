@@ -45,6 +45,9 @@ golem::amend_golem_config(key = "table_profiles_log", value = "bs_profiles_log")
 golem::amend_golem_config(key = "table_leads_profiles", value = "bs_leads_profiles")
 golem::amend_golem_config(key = "table_leads_profiles_neg", value = "bs_leads_profiles_neg")
 
+golem::amend_golem_config(key = "table_prime_industry", value = "bs_ind_prime_industry")
+golem::amend_golem_config(key = "table_lookup", value = "bs_ind_lookup")
+
 golem::amend_golem_config(key = "table_geo_timezones", value = "geo_tz")
 
 golem::amend_golem_config(key = "plot.color",       value = "#CA0813")

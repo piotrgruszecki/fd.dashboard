@@ -18,6 +18,8 @@ default:
   table_geo_timezones: geo_tz
   table_leads_profiles: bs_leads_profiles
   table_leads_profiles_neg: bs_leads_profiles_neg
+  table_prime_industry: bs_ind_prime_industry
+  table_lookup: bs_ind_lookup
 production:
   app_prod: yes
 dev:

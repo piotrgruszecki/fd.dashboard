@@ -1,0 +1,103 @@
+---
+title: "FD Report 21"
+author: "Piotr G"
+date: '`r Sys.Date()`'
+papersize: a4
+output:
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+    number_sections: yes
+    toc: no
+  html_document:
+    toc: yes
+  tufte::tufte_html: default
+  pdf_document:
+    toc: no
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+fontsize: 8pt
+link-citations: yes
+#ctex: yes
+rtex: yes
+subtitle: Initial analysis
+#bibliography: skeleton.bib
+---
+
+```{r setup, echo=FALSE}
+#-- 0.0 markdown options
+knitr::opts_chunk$set(
+    echo = FALSE,
+    eval = TRUE,
+    message = FALSE,
+    warning = FALSE,
+    dpi = 300,
+    tinytex.verbose = TRUE,
+    tidy = FALSE, 
+#    cashe.extra = packageVersion('tufte'),
+    fig.align = "center"
+    )
+```
+
+
+```{r libraries}
+#-- 1.0 libraries ----
+# library(magrittr)
+# library(tidyverse)
+library(data.table)
+# library(tidyquant)
+# library(RMySQL)
+# library(lubridate)
+# library(ISOweek)
+# library(MMWRweek)
+
+#-- 1.2 Libraries own ----
+library(fd.dashboard)
+
+#-- 1.3 libraries graphical ----
+library(ggpubr)
+library(knitr)
+library(ggExtra)
+library(viridis)
+library(tufte)
+
+
+```
+
+```{r configuration}
+
+#-- 1.3. Settings ----
+Sys.setenv(R_CONFIG_ACTIVE = "default") # use "default" for for production, "development" for prototyping
+config <- config::get(file = "../inst/golem-config.yml", use_parent = TRUE)
+
+```
+
+# Purpose
+
+`r newthought('The goal')` of this document is to prepare functions for the report **14 Daily Active Profiles**.
+
+
+```{r data pull}
+
+tz_dt <- fd.dashboard::read_table_from_aws(config$table_geo_timezones)
+tz_dt[str_detect(region, "Samara")]
+
+leads_dt <- fd.dashboard::get_clean_leads()
+leads_dt[, `:=` (country_iso2c = countrycode::countryname(sourcevar = country, destination = "iso2c"))]
+leads_us_dt <- leads_dt[country_iso2c == "US"]
+
+setnames(leads_us_dt, c("state_city"), c("region"))
+setkey(leads_us_dt, country_iso2c, region)
+setkey(tz_dt, country_iso2c, region)
+
+tz_region_mult <- tz_dt[country_iso2c == "US"][, .N, .(region, tz)][order(-N)][, .N, .(region)][N > 2, region]
+x1 <- tz_dt[region %in% tz_region_mult, .N, .(region, tz)]
+
+x1[, `:=` (n = .I)]
+x1[4, .(lubridate::with_tz(lubridate::now(), tzone = tz), tz), by = .(n)]
+
+
+```
+
+
