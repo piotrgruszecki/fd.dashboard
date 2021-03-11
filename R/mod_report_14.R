@@ -66,7 +66,9 @@ mod_report_14_ui <- function(id){
         fluidPage(
           fluidRow(
             shiny::verbatimTextOutput(outputId = ns("host")),
-            shiny::verbatimTextOutput(outputId = ns("plot.color"))
+            shiny::verbatimTextOutput(outputId = ns("plot.color")),
+            shiny::verbatimTextOutput(outputId = ns("key_prof_dt")),
+            shiny::verbatimTextOutput(outputId = ns("key_min_investment_max_dt"))
           )
         )
       ) #-- tabPanel Debug
@@ -106,6 +108,16 @@ mod_report_14_server <- function(id, aws_buffer){
     prof_min_set_dt <- reactive({
 
       #-- join
+      # Thu Mar 11 06:53:57 2021 ------------------------------
+      #-- debug
+      prof_dt <- aws_buffer$profiles
+
+      setkey(prof_dt, min_investment_currency)
+      timestamp <- lubridate::now()
+      output$key_prof_dt <- shiny::renderText(glue::glue("### {timestamp}, key of prof_dt: {key(prof_dt)} ###"))
+      output$key_min_investment_max_dt <- shiny::renderText(glue::glue("### {timestamp}, key of min_investment_max_dt: {key(min_investment_max_dt())} ###"))
+      # Thu Mar 11 06:54:06 2021 ------------------------------
+
       dt <- prof_dt[min_investment_max_dt()]
 
       #-- add column outlier
