@@ -9,7 +9,7 @@
 #' @importFrom shiny NS tagList selectInput sliderInput verbatimTextOutput
 #' @import R6
 #' @importFrom shinycssloaders withSpinner
-#'
+#' @importFrom sunburstR sund2bOutput
 mod_report_21_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -33,20 +33,29 @@ mod_report_21_ui <- function(id){
 
       shinydashboard::tabBox(title = "First tabBox", id = "tabset1", height = "450px", width = 12,
         shiny::tabPanel(title = "Prime Industry",
-          fluidRow(shinydashboard::box(width = 8, title = "Leads",
-            sunburstR::sund2bOutput(outputId = ns("plot_01")))
-          ),
+
           fluidRow(
-            shinydashboard::box(width = 8, title = "Split by currencies, Leads & Revenue",
-              fluidRow(column(width = 8, shinyWidgets::radioGroupButtons(inputId = ns("currency_selected"), label = "Currencies", choices = c("USD", "EUR", "ZAR", "GBP", "MXN"), selected = "USD", justified = FALSE, checkIcon = list(yes = icon("ok", lib = "glyphicon")))),
-                       column(width = 4, shinyWidgets::radioGroupButtons(inputId = ns("currency_plot_switch"), label = "Leads or Revenue", choices = c("lead", "rev"), selected = "rev", justified = FALSE, checkIcon = list(yes = icon("ok", lib = "glyphicon")))),
-              ),
-              sunburstR::sund2bOutput(outputId = ns("plot_02"))
+            shinydashboard::box(width = 8, title = "Prime Industry. Leads, Revenue.",
+              fluidRow(column(width = 8), #-- placeholder for the momentt
+                       column(width = 4, shinyWidgets::radioGroupButtons(inputId = ns("overview_plot_switch"), label = "Leads or Revenue", choices = c("lead", "rev"), selected = "rev", justified = FALSE, checkIcon = list(yes = icon("ok", lib = "glyphicon")))),
+               ),
+            sunburstR::sund2bOutput(outputId = ns("plot_01")) %>% withSpinner(color = "#0dc5c1")
             ),
-            shinydashboard::box(width = 4, title = "Currency vs web",
-              DT::DTOutput(outputId = ns("table_02"))
+            shinydashboard::box(width = 4, title = "Leads, Rev vs web", DT::DTOutput(outputId = ns("table_01"))
             )
-          )
+          ), #-- fluidRow
+
+          fluidRow(
+            shinydashboard::box(width = 8, title = "Split by currencies. Leads, Revenue",
+              fluidRow(column(width = 8, shinyWidgets::radioGroupButtons(inputId = ns("currency_selected"), label = "Currencies", choices = c("USD", "EUR", "ZAR", "GBP", "MXN"), selected = "USD", justified = FALSE, checkIcon = list(yes = icon("ok", lib = "glyphicon")))),
+                       column(width = 4, shinyWidgets::radioGroupButtons(inputId = ns("currency_plot_switch"), label = "Leads or Revenue", choices = c("lead", "rev"), selected = "rev", justified = FALSE, checkIcon = list(yes = icon("ok", lib = "glyphicon"))))
+              ),
+              sunburstR::sund2bOutput(outputId = ns("plot_02")) %>% withSpinner(color = "#0dc5c1")
+            ),
+            shinydashboard::box(width = 4, title = "Currency vs web", DT::DTOutput(outputId = ns("table_02"))
+            )
+          ) #-- fluidRow
+
         ),
 
         shiny::tabPanel(title = "Industries",
@@ -87,6 +96,7 @@ mod_report_21_ui <- function(id){
 #' @import R6
 #' @import data.table
 #' @importFrom lubridate month year today %--% %within%
+#' @importFrom sunburstR sund2b renderSund2b
 #' @noRd
 mod_report_21_server <- function(id, aws_buffer){
   moduleServer( id, function(input, output, session){
@@ -175,16 +185,29 @@ mod_report_21_server <- function(id, aws_buffer){
 
     #-- charting
     #-- overview plot, all websites, for selected period
-    render_overview_sunburst_plot <- function(){
+    render_overview_sunbursts_plots <- reactive({
 
-      aggregate_dt <- subset_dt()[, .(leads = sum(leads)), .(seq)]
-      plot_01 <- aggregate_dt %>% sunburstR::sund2b()
+      #-- whether we should chart leads or revenue; the table follows
+      overview_plot_switch  <- input$overview_plot_switch
 
-      plots_sunbursts_list <- list(plot_01 = plot_01, table_01 = aggregate_dt)
-      return(plots_sunbursts_list)
-    }
-    output$plot_01  <- sunburstR::renderSund2b({render_overview_sunburst_plot()$plot_01})
-    output$table_01 <- DT::renderDT({render_overview_sunburst_plot()$table_01})
+      plot <- switch(overview_plot_switch,
+                     lead = subset_dt()[, .(leads = sum(leads)), .(seq)] %>% sunburstR::sund2b(),
+                     rev  = subset_dt()[, .(rev   = sum(rev)),   .(seq)] %>% sunburstR::sund2b()
+      )
+
+      plot_overview_sunbursts_list <- list(plot = plot)
+      return(plot_overview_sunbursts_list)
+    })
+    output$plot_01  <- sunburstR::renderSund2b({render_overview_sunbursts_plots()$plot})
+
+    #-- table adjacent to plot_01
+    render_overview_table <- reactive({
+
+      dt <- subset_dt()[, .(leads = sum(leads), rev = sum(rev)), .(website_iso2c)]
+      table_overview_sunbursts_list <- list(table = dt)
+      return(table_overview_sunbursts_list)
+    })
+    output$table_01 <- DT::renderDT({render_overview_table()$table}, options = list(pageLength = 15))
 
     #-- detailed plot for selected month, currency
     render_currency_sunbursts_plots <- reactive({
