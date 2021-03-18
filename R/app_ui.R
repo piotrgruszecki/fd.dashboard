@@ -18,12 +18,14 @@ app_ui <- function(request) {
       #-- 1.2 dashboard sidebar
       shinydashboard::dashboardSidebar(
         shinydashboard::sidebarMenu(
-          shinydashboard::menuItem("3: Lead Status",     tabName = "lead_status",     icon = icon("globe-americas")),
-          shinydashboard::menuItem("9: Daily Lead Flow", tabName = "daily_lead_flow", icon = icon("globe-americas")),
-          shinydashboard::menuItem("14: Minimum Investment", tabName = "minimum_investment_level", icon = icon("globe-americas")),
-          shinydashboard::menuItem("15: Daily Active Profiles", tabName = "daily_active_profiles", icon = icon("globe-americas")),
-          shinydashboard::menuItem("21: Industries & Categories", tabName = "industries_categories", icon = icon("globe-americas")),
-          shinydashboard::menuItem("N: Other Report",    tabName = "widgets",         icon = icon("dashboard"))
+          shinydashboard::menuItem("3: Lead Status",              tabName = "lead_status",              icon = icon("cogs")),
+          shinydashboard::menuItem("9: Daily Lead Flow",          tabName = "daily_lead_flow",          icon = icon("globe-americas")),
+          shinydashboard::menuItem("14: Minimum Investment",      tabName = "minimum_investment_level", icon = icon("wallet")),
+          shinydashboard::menuItem("15: Daily Active Profiles",   tabName = "daily_active_profiles",    icon = icon("battery-full")),
+          shinydashboard::menuItem("21: Industries & Categories", tabName = "industries_categories",    icon = icon("industry")),
+          shinydashboard::menuItem("22: Daily Profiles",          tabName = "daily_profiles",           icon = icon("calendar-day")),
+
+          shinydashboard::menuItem("N: Other Report",             tabName = "widgets",                  icon = icon("dashboard"))
         )
       ),
 
@@ -35,6 +37,8 @@ app_ui <- function(request) {
           shinydashboard::tabItem(tabName = "minimum_investment_level", mod_report_14_ui("report_14_ui_1")),
           shinydashboard::tabItem(tabName = "daily_active_profiles",    mod_report_15_ui("report_15_ui_1")),
           shinydashboard::tabItem(tabName = "industries_categories",    mod_report_21_ui("report_21_ui_1")),
+          shinydashboard::tabItem(tabName = "daily_profiles",           mod_report_22_ui("report_22_ui_1")),
+
           shinydashboard::tabItem(tabName = "widgets", h2("Widgets tab content"))
         )
       )

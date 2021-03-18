@@ -38,7 +38,7 @@ mod_report_3_ui <- function(id){
     fluidRow(
       shinydashboard::tabBox(title = "First tabBox", id = "tabset1", height = "250px", width = 12,
         shiny::tabPanel(title = "Geo analysis",
-          fluidRow(shinydashboard::box(width = 8, plotOutput(outputId = ns("plot_02"))), shinydashboard::box(width = 4, DT::DTOutput(outputId = ns("table_1")))),
+                        fluidRow(shinydashboard::box(width = 8, plotOutput(outputId = ns("plot_02"))), shinydashboard::box(width = 4, DT::DTOutput(outputId = ns("table_1")))),
           fluidRow(shinydashboard::box(width = 12,DT::DTOutput(outputId = ns("table_2"))))
         ),
         shiny::tabPanel(title = "Credited",

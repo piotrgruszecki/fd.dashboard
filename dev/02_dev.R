@@ -47,6 +47,7 @@ golem::add_module( name = "report_9" ) # Name of the module
 golem::add_module( name = "report_15" ) # Name of the module
 golem::add_module( name = "report_14" ) # Name of the module
 golem::add_module( name = "report_21" ) # Name of the module
+golem::add_module( name = "report_22" ) # Name of the module
 
 
 ## Add helper functions ----
@@ -54,6 +55,7 @@ golem::add_module( name = "report_21" ) # Name of the module
 golem::add_fct( "helpers" )
 golem::add_fct( "aws" )
 golem::add_fct( "report_21" )
+golem::add_fct( "report_22" )
 golem::add_utils( "nested_modules" )
 
 ## External resources
